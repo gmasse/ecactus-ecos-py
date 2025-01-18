@@ -6,7 +6,8 @@ build-backend = "setuptools.build_meta"
 name = "ecactus-ecos"
 version = "0.1.0"
 dependencies = [
-    "requests >= 2.31.0"
+    "requests >= 2.32.3",
+    "aiohttp >= 3.10.10"
 ]
 authors = [
   { name="Germain Masse", email="g-dev@masse.me" },

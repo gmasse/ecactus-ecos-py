@@ -19,7 +19,8 @@ REFRESH_TOKEN: str | None = None
 EMAIL: str | None = None
 PASSWORD: str | None = None
 
-
+#EMAIL = "name@domain.com"
+#PASSWORD = "password"
 
 def main() -> None:
     """Demonstrate the usage of the Ecos class by performing the following steps.
