@@ -1,77 +1,27 @@
-"""Implementation of a class for interacting with the ECOS API."""
+"""Implementation of an asynchronous class for interacting with the ECOS API."""
 
 from datetime import datetime
 import logging
 import time
-from typing import Any, TypeAlias
+from typing import Any
 
-import requests
+import aiohttp
+
+from ._base import JSON, _BaseEcos
+from ._exceptions import ApiResponseError, HttpError, InvalidJsonError
 
 # Configure logging
-# import http
-# http.client.HTTPConnection.debuglevel = 1
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)  # Set to DEBUG for development; INFO or WARNING for production.
 
-
-class Ecos:
-    """ECOS API client class.
+class AsyncEcos(_BaseEcos):
+    """Asynchronous ECOS API client class.
 
     This class provides methods for interacting with the ECOS API, including
     authentication, retrieving user information, and managing homes. It uses
-    the `requests` library to make HTTP requests to the API.
-
-    Attributes:
-        access_token (str): The access token for authentication with the ECOS API.
-        refresh_token (str): The refresh token for authentication with the ECOS API.
-        url (str): The URL of the ECOS API.
-
+    the `aiohttp` library to make asynchonous HTTP requests to the API.
     """
 
-    JSON: TypeAlias = Any
-
-    def __init__(
-        self,
-        datacenter: str | None = None,
-        url: str | None = None,
-        access_token: str | None = None,
-        refresh_token: str | None = None,
-    ) -> None:
-        """Initialize a session with ECOS API.
-
-        Args:
-            datacenter (Optional[str]): The location of the ECOS API datacenter.
-                Can be one of 'CN', 'EU', or 'AU'. If not specified and 'url' is not provided,
-                a ValueError is raised.
-            url (Optional[str]): The URL of the ECOS API. If specified, 'datacenter' is ignored.
-            access_token (Optional[str]): The access token for authentication with the ECOS API.
-            refresh_token (Optional[str]): The refresh token for authentication with the ECOS API.
-
-        Raises:
-            ValueError: If 'datacenter' is not one of 'CN', 'EU', or 'AU' and 'url' is not provided.
-
-        """
-        logger.info("Initializing session")
-        self.access_token = access_token
-        self.refresh_token = refresh_token
-        # TODO: get datacenters from https://dcdn-config.weiheng-tech.com/prod/config.json
-        datacenters = {
-            "CN": "https://api-ecos-hu.weiheng-tech.com",
-            "EU": "https://api-ecos-eu.weiheng-tech.com",
-            "AU": "https://api-ecos-au.weiheng-tech.com",
-        }
-        if url is None:
-            if datacenter is None:
-                raise ValueError("url or datacenter not specified")
-            if datacenter not in datacenters:
-                raise ValueError(
-                    "datacenter must be one of {}".format(", ".join(datacenters.keys()))
-                )
-            self.url = datacenters[datacenter]
-        else:  # url specified, ignore datacenter
-            self.url = url.rstrip("/")  # remove trailing / from url
-
-    def _get(self, api_path: str, payload: dict[str, Any] = {}) -> JSON:
+    async def _get(self, api_path: str, payload: dict[str, Any] = {}) -> JSON:
         """Make a GET request to the ECOS API.
 
         Args:
@@ -89,25 +39,23 @@ class Ecos:
         api_path = api_path.lstrip("/")  # remove / from beginning of api_path
         full_url = self.url + "/" + api_path
         logger.debug("API GET call: %s", full_url)
-        try:
-            response = requests.get(
-                full_url, params=payload, headers={"Authorization": self.access_token}
-            )
-            body = response.json()
-        except requests.exceptions.JSONDecodeError as err:
-            raise ValueError(f'Invalid JSON ({body["code"]} {body["message"]})') from err
-        else:
-            if not response.ok:
-                raise requests.exceptions.HTTPError(
-                    f'{response.status_code} {body["message"]}'
-                )
-            if not body["success"]:
-              logger.debug(body)
-              raise ValueError(f'API call failed: {body["code"]} {body["message"]}')
-        data: Ecos.JSON = body["data"]
-        return data
 
-    def _post(self, api_path: str, payload: JSON = {}) -> JSON:
+        headers = {"Authorization": self.access_token} if self.access_token is not None else None
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.get(full_url, params=payload, headers=headers) as response:
+                    body = await response.json()
+            except aiohttp.ContentTypeError as err:
+                raise InvalidJsonError(f'Invalid JSON ({body["code"]} {body["message"]})') from err
+            else:
+                if response.status != 200:
+                    raise HttpError(f'{response.status_code} {body["message"]}')
+                if not body["success"]:
+                    logger.debug(body)
+                    raise ApiResponseError(f'API call failed: {body["code"]} {body["message"]}')
+        return body["data"]
+
+    async def _post(self, api_path: str, payload: JSON = {}) -> JSON:
         """Make a POST request to the ECOS API.
 
         Args:
@@ -125,24 +73,24 @@ class Ecos:
         api_path = api_path.lstrip("/")  # remove / from beginning of api_path
         full_url = self.url + "/" + api_path
         logger.debug("API POST call: %s", full_url)
-        try:
-            response = requests.post(
-                full_url, json=payload, headers={"Authorization": self.access_token}
-            )
-            body = response.json()
-        except requests.exceptions.JSONDecodeError as err:
-            raise ValueError(f'Invalid JSON ({body["code"]} {body["message"]})') from err
-        else:
-            if not response.ok:
-                raise requests.exceptions.HTTPError(
-                    f'{response.status_code} {body["message"]}'
-                )
-            if not body["success"]:
-              logger.debug(body)
-              raise ValueError(f'API call failed: {body["code"]} {body["message"]}')
+
+        headers = {"Authorization": self.access_token} if self.access_token is not None else None
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.post(full_url, json=payload, headers=headers) as response:
+                    body = await response.json()
+            except aiohttp.ContentTypeError as err:
+                #TODO custom exception
+                raise ValueError(f'Invalid JSON ({body["code"]} {body["message"]})') from err
+            else:
+                if response.status != 200:
+                    raise ValueError(f'{response.status_code} {body["message"]}')
+                if not body["success"]:
+                    logger.debug(body)
+                    raise ValueError(f'API call failed: {body["code"]} {body["message"]}')
         return body["data"]
 
-    def login(self, email: str, password: str) -> None:
+    async def login(self, email: str, password: str) -> None:
         """Authenticate with the ECOS API using a provided email and password.
 
         Args:
@@ -158,11 +106,11 @@ class Ecos:
             "email": email,
             "password": password,
         }
-        data = self._post("/api/client/guide/login", payload=payload)
+        data = await self._post("/api/client/guide/login", payload=payload)
         self.access_token = data["accessToken"]
         self.refresh_token = data["refreshToken"]
 
-    def get_user_info(self) -> JSON:
+    async def get_user_info(self) -> JSON:
         """Get user details.
 
         Returns:
@@ -179,9 +127,9 @@ class Ecos:
 
         """
         logger.info("Get user info")
-        return self._get("/api/client/settings/user/info")
+        return await self._get("/api/client/settings/user/info")
 
-    def get_homes(self) -> JSON:
+    async def get_homes(self) -> JSON:
         """Get a list of homes.
 
         Returns:
@@ -208,7 +156,7 @@ class Ecos:
 
         """
         logger.info("Get home list")
-        home_list: list[Any] = self._get("/api/client/v2/home/family/query")
+        home_list: list[Any] = await self._get("/api/client/v2/home/family/query")
         for (
             home
         ) in home_list:  # force the name of the home for shared devices (homeType=0)
@@ -216,7 +164,7 @@ class Ecos:
                 home["homeName"] = "SHARED_DEVICES"
         return home_list
 
-    def get_devices(self, home_id: int) -> JSON:
+    async def get_devices(self, home_id: int) -> JSON:
         """Get a list of devices for a home.
 
         Args:
@@ -249,11 +197,11 @@ class Ecos:
         logger.info("Get devices for home %d", home_id)
         # /api/client/v2/home/device/query?homeId=1876350461905473536
         # return self._get('/api/client/v2/home/device/query')
-        return self._get(
+        return await self._get(
             "/api/client/v2/home/device/query", payload={"homeId": home_id}
         )
 
-    def get_all_devices(self) -> JSON:
+    async def get_all_devices(self) -> JSON:
         """Get a list of devices.
 
         Returns:
@@ -279,9 +227,9 @@ class Ecos:
 
         """
         logger.info("Get devices for every homes")
-        return self._get("/api/client/home/device/list")
+        return await self._get("/api/client/home/device/list")
 
-    def get_realtime_device_data(self, device_id: int) -> JSON:
+    async def get_realtime_device_data(self, device_id: int) -> JSON:
         """Get power metrics of the current day until now.
 
         Args:
@@ -301,11 +249,11 @@ class Ecos:
 
         """
         logger.info("Get current day data for device %d", device_id)
-        return self._post(
+        return await self._post(
             "/api/client/home/now/device/realtime", payload={"deviceId": device_id}
         )
 
-    def get_realtime_home_data(self, home_id: int) -> JSON:
+    async def get_realtime_home_data(self, home_id: int) -> JSON:
         """Get current power for the home.
 
         Args:
@@ -329,11 +277,11 @@ class Ecos:
 
         """
         logger.info("Get realtime data for home %d", home_id)
-        return self._get(
+        return await self._get(
             "/api/client/v2/home/device/runData", payload={"homeId": home_id}
         )
 
-    def get_history(
+    async def get_history(
         self, device_id: int, start_date: datetime, period_type: int
     ) -> JSON:
         """Get aggregated energy for a period.
@@ -361,7 +309,7 @@ class Ecos:
         """
         logger.info("Get history for device %d", device_id)
         start_ts = int(start_date.timestamp())
-        return self._post(
+        return await self._post(
             "/api/client/home/history/home",
             payload={
                 "deviceId": device_id,
@@ -370,7 +318,7 @@ class Ecos:
             },
         )
 
-    def get_insight(
+    async def get_insight(
         self, device_id: int, start_date: datetime, period_type: int
     ) -> JSON:
         """Get energy metrics and statistics of a device for a period.
@@ -424,7 +372,7 @@ class Ecos:
         """
         logger.info("Get insight for device %d", device_id)
         start_ts = int(start_date.timestamp() * 1000)  # timestamp in milliseconds
-        return self._post(
+        return await self._post(
             "/api/client/v2/device/three/device/insight",
             payload={
                 "deviceId": device_id,
@@ -433,124 +381,4 @@ class Ecos:
             },
         )
 
-"""
-API
 
-https://api-ecos-eu.weiheng-tech.com/api/client/v2/home/device/energy?homeId=1870968563368726528
--->
-  "data": {
-    "today": 1,
-    "lastWeekTotalSolar": 125.7,
-    "lastWeekTotalGrid": 145.1,
-    "lastWeekTotalCarbonEmissions": 125.326,
-    "lastWeekTotalSaveStandardCoal": 50.78,
-    "weekEnergy": {
-      "1": {
-        "solarEnergy": 12.9,
-        "gridEnergy": 3.8,
-        "toGrid": 6.9,
-        "homeEnergy": 9.8,
-        "selfPowered": 61
-      },
-      "2": {
-        "solarEnergy": 17.7,
-        "gridEnergy": 29.6,
-        "toGrid": 6.5,
-        "homeEnergy": 40.8,
-        "selfPowered": 27
-      },
-      "3": {
-        "solarEnergy": 21.3,
-        "gridEnergy": 18.9,
-        "toGrid": 9,
-        "homeEnergy": 31.2,
-        "selfPowered": 39
-      },
-      "4": {
-        "solarEnergy": 15.3,
-        "gridEnergy": 19.8,
-        "toGrid": 4.3,
-        "homeEnergy": 30.8,
-        "selfPowered": 36
-      },
-      "5": {
-        "solarEnergy": 20.8,
-        "gridEnergy": 17.4,
-        "toGrid": 10.1,
-        "homeEnergy": 28.1,
-        "selfPowered": 38
-      },
-      "6": {
-        "solarEnergy": 20.5,
-        "gridEnergy": 22.3,
-        "toGrid": 3.5,
-        "homeEnergy": 39.3,
-        "selfPowered": 43
-      },
-      "7": {
-        "solarEnergy": 17.2,
-        "gridEnergy": 33.3,
-        "toGrid": 5.7,
-        "homeEnergy": 44.8,
-        "selfPowered": 26
-      }
-    },
-    "carbonEmissionsWeekEnergy": {
-      "1": {
-        "carbonEmissions": 12.861
-      },
-      "2": {
-        "carbonEmissions": 17.647
-      },
-      "3": {
-        "carbonEmissions": 21.238
-      },
-      "4": {
-        "carbonEmissions": 15.255
-      },
-      "5": {
-        "carbonEmissions": 20.738
-      },
-      "6": {
-        "carbonEmissions": 20.438
-      },
-      "7": {
-        "carbonEmissions": 17.149
-      }
-    },
-    "saveStandardCoalWeekEnergy": {
-      "1": {
-        "saveStandardCoal": 5.212
-      },
-      "2": {
-        "saveStandardCoal": 7.15
-      },
-      "3": {
-        "saveStandardCoal": 8.605
-      },
-      "4": {
-        "saveStandardCoal": 6.181
-      },
-      "5": {
-        "saveStandardCoal": 8.402
-      },
-      "6": {
-        "saveStandardCoal": 8.282
-      },
-      "7": {
-        "saveStandardCoal": 6.948
-      }
-    }
-  }
-
-https://api-ecos-eu.weiheng-tech.com/api/client/v2/home/device/incrRefresh
-{
-  "homeId": "1870968563368726528"
-}
--->
-{
-  "code": 0,
-  "message": "success",
-  "success": true
-}
-"""
