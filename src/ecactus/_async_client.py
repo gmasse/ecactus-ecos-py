@@ -80,14 +80,13 @@ class AsyncEcos(_BaseEcos):
                 async with session.post(full_url, json=payload, headers=headers) as response:
                     body = await response.json()
             except aiohttp.ContentTypeError as err:
-                #TODO custom exception
-                raise ValueError(f'Invalid JSON ({body["code"]} {body["message"]})') from err
+                raise InvalidJsonError from err
             else:
                 if response.status != 200:
-                    raise ValueError(f'{response.status_code} {body["message"]}')
+                    raise HttpError(response.status_code, body["message"])
                 if not body["success"]:
                     logger.debug(body)
-                    raise ValueError(f'API call failed: {body["code"]} {body["message"]}')
+                    raise ApiResponseError(body["code"], body["message"])
         return body["data"]
 
     async def login(self, email: str, password: str) -> None:

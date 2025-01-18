@@ -6,10 +6,8 @@ class EcosApiError(Exception):
 class InvalidJsonError(EcosApiError):
     """Raised when the API returns invalid JSON."""
 
-    def __init__(self, message, code, error):
-        self.code = code
-        self.error = error
-        super().__init__(message)
+    def __init__(self):
+        super().__init__("Invalid JSON")
 
 class ApiResponseError(EcosApiError):
     """Raised when the API returns a non-successful response."""
@@ -22,6 +20,7 @@ class ApiResponseError(EcosApiError):
 class HttpError(EcosApiError):
     """Raised when an HTTP error occurs while making an API request."""
 
-    def __init__(self, status_code):
+    def __init__(self, status_code, message):
         self.status_code = status_code
-        super().__init__(f"HTTP error: {status_code}")
+        self.message = message
+        super().__init__(f"HTTP error: {status_code} {message}")

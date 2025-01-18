@@ -46,13 +46,13 @@ class Ecos(_BaseEcos):
             )
             body = response.json()
         except requests.exceptions.JSONDecodeError as err:
-            raise InvalidJsonError(f'Invalid JSON ({body["code"]} {body["message"]})') from err
+            raise InvalidJsonError from err
         else:
             if not response.ok:
-                raise HttpError(f'{response.status_code} {body["message"]}')
+                raise HttpError(response.status_code, body["message"])
             if not body["success"]:
                 logger.debug(body)
-                raise ApiResponseError(f'API call failed: {body["code"]} {body["message"]}')
+                raise ApiResponseError(body["code"], body["message"])
         return body["data"]
 
     def _post(self, api_path: str, payload: JSON = {}) -> JSON:
@@ -79,15 +79,13 @@ class Ecos(_BaseEcos):
             )
             body = response.json()
         except requests.exceptions.JSONDecodeError as err:
-            raise ValueError(f'Invalid JSON ({body["code"]} {body["message"]})') from err
+            raise InvalidJsonError from err
         else:
             if not response.ok:
-                raise requests.exceptions.HTTPError(
-                    f'{response.status_code} {body["message"]}'
-                )
+                raise HttpError(response.status_code, body["message"])
             if not body["success"]:
-              logger.debug(body)
-              raise ValueError(f'API call failed: {body["code"]} {body["message"]}')
+                logger.debug(body)
+                raise ApiResponseError(body["code"], body["message"])
         return body["data"]
 
     def login(self, email: str, password: str) -> None:
