@@ -18,8 +18,9 @@ REFRESH_TOKEN: str | None = None
 EMAIL: str | None = None
 PASSWORD: str | None = None
 
-#EMAIL = "name@domain.com"
-#PASSWORD = "password"
+# EMAIL = "name@domain.com"
+# PASSWORD = "password"
+
 
 async def main() -> None:
     """Demonstrate the usage of the async Ecos class by performing the following steps.
@@ -37,9 +38,10 @@ async def main() -> None:
         )
         await session.login(email, password)
 
-    print(session.access_token) # noqa: T201
+    print(session.access_token)  # noqa: T201
     user_info = await session.get_user_info()
-    print(user_info) # noqa: T201
+    print(user_info)  # noqa: T201
+
 
 if __name__ == "__main__":
     asyncio.run(main())
