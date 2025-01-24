@@ -1,13 +1,16 @@
-# exceptions.py
+"""Ecos client custom exceptions."""
+
 
 class EcosApiError(Exception):
     """Base exception class for all ECOS API-related errors."""
+
 
 class InvalidJsonError(EcosApiError):
     """Raised when the API returns invalid JSON."""
 
     def __init__(self):
         super().__init__("Invalid JSON")
+
 
 class ApiResponseError(EcosApiError):
     """Raised when the API returns a non-successful response."""
@@ -16,6 +19,7 @@ class ApiResponseError(EcosApiError):
         self.code = code
         self.message = message
         super().__init__(f"API call failed: {code} {message}")
+
 
 class HttpError(EcosApiError):
     """Raised when an HTTP error occurs while making an API request."""
