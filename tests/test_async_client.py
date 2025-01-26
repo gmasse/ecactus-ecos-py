@@ -1,11 +1,8 @@
-"""Unit tests for synchronous Ecos class."""
+"""Unit tests for asynchronous Ecos class."""
 
-import asyncio
 from datetime import datetime
 import logging
-import threading
 
-from aiohttp import web
 import pytest
 
 import ecactus
@@ -20,19 +17,9 @@ LOGIN = "test@test.com"
 PASSWORD = "password"
 
 
-def run_server(runner, host="127.0.0.1", port=8080):
-    """Run the server."""
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(runner.setup())
-    site = web.TCPSite(runner, host, port)
-    loop.run_until_complete(site.start())
-    loop.run_forever()
-
-
 @pytest.fixture(autouse=True, scope="session")
-def mock_server():
-    """Start a mock server in a thread and return it."""
+async def mock_server():
+    """Start a mock server and return it."""
     localhost = "127.0.0.1"
     # Find an unused localhost port from 1024-65535 and return it.
     import contextlib
@@ -44,109 +31,102 @@ def mock_server():
     server = EcosMockServer(
         host=localhost, port=unused_tcp_port, login=LOGIN, password=PASSWORD
     )
-    server.setup_routes()
-    runner = web.AppRunner(server.app)
-    thread = threading.Thread(
-        target=run_server, args=(runner, server.host, server.port)
-    )
-    thread.daemon = True  # daeamon thread will be killed when main thread ends
-    thread.start()
-    server.url = f"http://{server.host}:{server.port}"
-    return server
+    await server.start()
+    yield server
+    await server.stop()
 
 
 @pytest.fixture(scope="session")
-def client(mock_server):
+async def async_client(mock_server):
     """Return an ECOS client."""
-    return ecactus.Ecos(url=mock_server.url)
+    return ecactus.AsyncEcos(url=mock_server.url)
 
 
-def test_login(mock_server, client):
+async def test_login(mock_server, async_client):
     """Test login."""
     with pytest.raises(ecactus.ApiResponseError):
-        client.login("wrong_login", "wrong_password")
-    client.login(LOGIN, PASSWORD)
-    assert client.access_token == mock_server.access_token
-    assert client.refresh_token == mock_server.refresh_token
+        await async_client.login("wrong_login", "wrong_password")
+    await async_client.login(LOGIN, PASSWORD)
+    assert async_client.access_token == mock_server.access_token
+    assert async_client.refresh_token == mock_server.refresh_token
 
 
-def test_get_user_info(caplog, mock_server, client):
+async def test_get_user_info(mock_server, async_client):
     """Test get user info."""
-    caplog.set_level(logging.DEBUG)
-    user_info = client.get_user_info()
+    user_info = await async_client.get_user_info()
     assert user_info["username"] == LOGIN
 
 
-def test_get_homes(mock_server, client):
+async def test_get_homes(mock_server, async_client):
     """Test get homes."""
-    homes = client.get_homes()
+    homes = await async_client.get_homes()
     assert homes[1]["homeName"] == "My Home"
 
 
-def test_get_devices(mock_server, client):
+async def test_get_devices(mock_server, async_client):
     """Test get devices."""
     with pytest.raises(ecactus.ApiResponseError) as err:
-        client.get_devices(home_id=0)
+        await async_client.get_devices(home_id=0)
     assert str(err.getrepr(style="value")) == "API call failed: 20450 Home does not exist."
 
-    devices = client.get_devices(home_id=9876543210987654321)
+    devices = await async_client.get_devices(home_id=9876543210987654321)
     assert devices[0]["deviceAliasName"] == "My Device"
 
 
-def test_get_all_devices(mock_server, client):
+async def test_get_all_devices(mock_server, async_client):
     """Test get all devices."""
-    devices = client.get_all_devices()
+    devices = await async_client.get_all_devices()
     assert devices[0]["deviceAliasName"] == "My Device"
 
 
-def test_get_realtime_device_data(mock_server, client):
+async def test_get_realtime_device_data(mock_server, async_client):
     """Test get realtime device data."""
     with pytest.raises(ecactus.HttpError) as err:
-        client.get_realtime_device_data(device_id=0)
+        await async_client.get_realtime_device_data(device_id=0)
     assert str(err.getrepr(style="value")) == "HTTP error: 401 unauthorized device"
 
-    data = client.get_realtime_device_data(device_id=1234567890123456789)
+    data = await async_client.get_realtime_device_data(device_id=1234567890123456789) # HTTP error: 401 unauthorized device
     assert len(data["solarPowerDps"]) > 0
 
 
-def test_get_realtime_home_data(mock_server, client):
+async def test_get_realtime_home_data(mock_server, async_client):
     """Test get reatime home data."""
     with pytest.raises(ecactus.ApiResponseError) as err:
-        client.get_devices(home_id=0)
+        await async_client.get_devices(home_id=0)
     assert str(err.getrepr(style="value")) == "API call failed: 20450 Home does not exist."
 
-    data = client.get_realtime_home_data(home_id=9876543210987654321)
+    data = await async_client.get_realtime_home_data(home_id=9876543210987654321)
     assert data.get("homePower") is not None
 
 
-async def test_get_history(mock_server, client):
+async def test_get_history(mock_server, async_client):
     """Test get history."""
     now = datetime.now()
     with pytest.raises(ecactus.HttpError) as err:
-        client.get_history(device_id=0, start_date=now, period_type=0)
+        await async_client.get_history(device_id=0, start_date=now, period_type=0)
     assert str(err.getrepr(style="value")) == "HTTP error: 401 unauthorized device"
 
     with pytest.raises(ecactus.ApiResponseError) as err:
-        client.get_history(device_id=1234567890123456789, start_date=now, period_type=5)
+        await async_client.get_history(device_id=1234567890123456789, start_date=now, period_type=5)
     assert str(err.getrepr(style="value")) == "API call failed: 20424 Parameter verification failed"
 
-    data = client.get_history(device_id=1234567890123456789, start_date=now, period_type=4)
+    data = await async_client.get_history(device_id=1234567890123456789, start_date=now, period_type=4)
     assert len(data["homeEnergyDps"]) == 1
 
     #TODO other period types
 
-async def test_get_insight(mock_server, client):
+async def test_get_insight(mock_server, async_client):
     """Test get insight."""
     now = datetime.now()
     with pytest.raises(ecactus.HttpError) as err:
-        client.get_insight(device_id=0, start_date=now, period_type=0)
+        await async_client.get_insight(device_id=0, start_date=now, period_type=0)
     assert str(err.getrepr(style="value")) == "HTTP error: 401 unauthorized device"
 
     with pytest.raises(ecactus.ApiResponseError) as err:
-        client.get_insight(device_id=1234567890123456789, start_date=now, period_type=1)
+        await async_client.get_insight(device_id=1234567890123456789, start_date=now, period_type=1)
     assert str(err.getrepr(style="value")) == "API call failed: 20404 Parameter verification failed"
 
-    data = client.get_insight(device_id=1234567890123456789, start_date=now, period_type=0)
+    data = await async_client.get_insight(device_id=1234567890123456789, start_date=now, period_type=0)
     assert len(data["deviceRealtimeDto"]["solarPowerDps"]) > 1
 
 
