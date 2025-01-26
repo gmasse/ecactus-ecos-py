@@ -38,21 +38,25 @@ class AsyncEcos(_BaseEcos):
         """
         api_path = api_path.lstrip("/")  # remove / from beginning of api_path
         full_url = self.url + "/" + api_path
-        logger.debug("API GET call: %s", full_url)
+        logger.info("API GET call: %s", full_url)
 
         headers = {"Authorization": self.access_token} if self.access_token is not None else None
         async with aiohttp.ClientSession() as session:
             try:
                 async with session.get(full_url, params=payload, headers=headers) as response:
+                    logger.debug(await response.text())
                     body = await response.json()
             except aiohttp.ContentTypeError as err:
-                raise InvalidJsonError(f'Invalid JSON ({body["code"]} {body["message"]})') from err
+                if response.status != 200:
+                    raise HttpError(response.status, await response.text()) from err
+                raise InvalidJsonError from err
             else:
                 if response.status != 200:
-                    raise HttpError(f'{response.status_code} {body["message"]}')
+                    error_msg = body.get("message", await response.text()) # return message from JSON if avalaible, or HTTP response text
+                    raise HttpError(response.status, error_msg)
                 if not body["success"]:
                     logger.debug(body)
-                    raise ApiResponseError(f'API call failed: {body["code"]} {body["message"]}')
+                    raise ApiResponseError(body["code"], body["message"])
         return body["data"]
 
     async def _post(self, api_path: str, payload: JSON = {}) -> JSON:
@@ -72,18 +76,22 @@ class AsyncEcos(_BaseEcos):
         """
         api_path = api_path.lstrip("/")  # remove / from beginning of api_path
         full_url = self.url + "/" + api_path
-        logger.debug("API POST call: %s", full_url)
+        logger.info("API POST call: %s", full_url)
 
         headers = {"Authorization": self.access_token} if self.access_token is not None else None
         async with aiohttp.ClientSession() as session:
             try:
                 async with session.post(full_url, json=payload, headers=headers) as response:
+                    logger.debug(await response.text())
                     body = await response.json()
             except aiohttp.ContentTypeError as err:
+                if response.status != 200:
+                    raise HttpError(response.status, await response.text()) from err
                 raise InvalidJsonError from err
             else:
                 if response.status != 200:
-                    raise HttpError(response.status_code, body["message"])
+                    error_msg = body.get("message", await response.text()) # return message from JSON if avalaible, or HTTP response text
+                    raise HttpError(response.status, error_msg)
                 if not body["success"]:
                     logger.debug(body)
                     raise ApiResponseError(body["code"], body["message"])
@@ -194,8 +202,6 @@ class AsyncEcos(_BaseEcos):
 
         """
         logger.info("Get devices for home %d", home_id)
-        # /api/client/v2/home/device/query?homeId=1876350461905473536
-        # return self._get('/api/client/v2/home/device/query')
         return await self._get(
             "/api/client/v2/home/device/query", payload={"homeId": home_id}
         )
@@ -290,7 +296,7 @@ class AsyncEcos(_BaseEcos):
             start_date (datetime): The start date.
             period_type (int):
                 0 = daily value of the calendar month corresponding to start_date
-                1 = daily values of the 4 last days from today (start_date is ignored)
+                1 = today daily values (start_date is ignored) (?)
                 2 = daily values of the current month (start_date is ignored)
                 3 = same than 2 ?
                 4 = total for the current month (start_date is ignored)
@@ -379,5 +385,3 @@ class AsyncEcos(_BaseEcos):
                 "periodType": period_type,
             },
         )
-
-
