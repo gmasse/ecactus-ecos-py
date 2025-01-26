@@ -39,13 +39,16 @@ class Ecos(_BaseEcos):
         """
         api_path = api_path.lstrip("/")  # remove / from beginning of api_path
         full_url = self.url + "/" + api_path
-        logger.debug("API GET call: %s", full_url)
+        logger.info("API GET call: %s", full_url)
         try:
             response = requests.get(
                 full_url, params=payload, headers={"Authorization": self.access_token}
             )
+            logger.debug(response.text)
             body = response.json()
         except requests.exceptions.JSONDecodeError as err:
+            if response.status_code != 200:
+                raise HttpError(response.status_code, response.text) from err
             raise InvalidJsonError from err
         else:
             if not response.ok:
@@ -72,13 +75,16 @@ class Ecos(_BaseEcos):
         """
         api_path = api_path.lstrip("/")  # remove / from beginning of api_path
         full_url = self.url + "/" + api_path
-        logger.debug("API POST call: %s", full_url)
+        logger.info("API POST call: %s", full_url)
         try:
             response = requests.post(
                 full_url, json=payload, headers={"Authorization": self.access_token}
             )
+            logger.debug(response.text)
             body = response.json()
         except requests.exceptions.JSONDecodeError as err:
+            if response.status_code != 200:
+                raise HttpError(response.status_code, response.text) from err
             raise InvalidJsonError from err
         else:
             if not response.ok:
@@ -193,8 +199,6 @@ class Ecos(_BaseEcos):
 
         """
         logger.info("Get devices for home %d", home_id)
-        # /api/client/v2/home/device/query?homeId=1876350461905473536
-        # return self._get('/api/client/v2/home/device/query')
         return self._get(
             "/api/client/v2/home/device/query", payload={"homeId": home_id}
         )
@@ -288,8 +292,8 @@ class Ecos(_BaseEcos):
             device_id (int): The device ID to get history for.
             start_date (datetime): The start date.
             period_type (int):
-                0 = daily value of the calendar month corresponding to start_date
-                1 = daily values of the 4 last days from today (start_date is ignored)
+                0 = daily values of the calendar month corresponding to start_date
+                1 = today daily values (start_date is ignored) (?)
                 2 = daily values of the current month (start_date is ignored)
                 3 = same than 2 ?
                 4 = total for the current month (start_date is ignored)
