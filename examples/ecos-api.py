@@ -4,6 +4,7 @@
 from datetime import datetime
 import getpass
 import logging
+import os
 from zoneinfo import ZoneInfo
 
 from ecactus import Ecos
@@ -23,6 +24,16 @@ PASSWORD: str | None = None
 # PASSWORD = "password"
 
 
+def get_env() -> None:
+    """Get ENV variables and set constant values."""
+    global ACCESS_TOKEN, REFRESH_TOKEN, EMAIL, PASSWORD, DATACENTER  # noqa: PLW0603
+    ACCESS_TOKEN = os.getenv("ECOS_ACCESS_TOKEN") or ACCESS_TOKEN
+    REFRESH_TOKEN = os.getenv("ECOS_REFRESH_TOKEN") or REFRESH_TOKEN
+    EMAIL = os.getenv("ECOS_EMAIL") or EMAIL
+    PASSWORD = os.getenv("ECOS_PASSWORD") or PASSWORD
+    DATACENTER = os.getenv("ECOS_DATACENTER") or DATACENTER
+
+
 def main() -> None:
     """Demonstrate the usage of the Ecos class by performing the following steps.
 
@@ -31,6 +42,9 @@ def main() -> None:
     3. Lists all devices associated with the user.
     4. Retrieves insight data for each device, including home energy consumption.
     """
+
+    get_env()
+
     if ACCESS_TOKEN is not None:
         session = Ecos(datacenter=DATACENTER, access_token=ACCESS_TOKEN)
     else:
@@ -44,12 +58,21 @@ def main() -> None:
     user_info = session.get_user_info()
     print(user_info)  # noqa: T201
 
+    homes = session.get_homes()
+    print(homes)  # noqa: T201
+
+
     start_date = datetime(
-        2024, 11, 20, 10, 0, 0, tzinfo=ZoneInfo(user_info["timezoneName"])
+        2025, 1, 20, 10, 0, 0, tzinfo=ZoneInfo(user_info["timezoneName"])
     )
+
     devices = session.get_all_devices()
     print(devices)  # noqa: T201
     for device in devices:
+
+        #history = session.get_history(int(device["deviceId"]), start_date, 4)
+        #print(history)  # noqa: T201
+
         insight = session.get_insight(
             int(device["deviceId"]), start_date, period_type=5
         )
