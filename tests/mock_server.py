@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import logging
 import random
 import string
+from typing import Any
 
 from aiohttp import web
 from multidict import CIMultiDictProxy
@@ -15,7 +16,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-JSON = dict | list | None
+JSON = Any
 
 
 class EcosMockServer:
@@ -27,7 +28,7 @@ class EcosMockServer:
         port: int = 8080,
         login: str = "test@test.com",
         password: str = "test",
-    ):
+    ) -> None:
         """Initialize the class."""
         logger.info("Initializing EcosMockServer")
         self.url: str | None = None
@@ -149,7 +150,7 @@ class EcosMockServer:
     def _is_authorized_request(self, request: web.Request) -> bool:
         """Check if request is authorized."""
         headers: CIMultiDictProxy[str] = request.headers
-        return headers.get("Authorization") == self.access_token
+        return bool(headers.get("Authorization") == self.access_token)
 
     async def handle_get_user_info(self, request: web.Request) -> web.Response:
         """Mock user info endpoint."""
@@ -280,7 +281,7 @@ class EcosMockServer:
             timestamp: int = int(current_date.timestamp())
             if timestamp_format == "milliseconds":
                 timestamp *= 1000
-            metrics_data[timestamp] = float(fake_value / 10)
+            metrics_data[str(timestamp)] = float(fake_value / 10)
         return metrics_data
 
     async def handle_get_realtime_device_data(
@@ -396,15 +397,19 @@ class EcosMockServer:
             )
         if request_payload.get("periodType") != 0:
             return EcosMockServer._not_implemented_response()
-        start_date = datetime.fromtimestamp(int(request_payload.get("timestamp")/1000)).replace(
+        start_date = datetime.fromtimestamp(
+            int(request_payload.get("timestamp") / 1000)
+        ).replace(
             hour=0, minute=0, second=0, microsecond=0
-        ) # convert timestamp (in milliseconds) to datetime
+        )  # convert timestamp (in milliseconds) to datetime
         end_date = start_date + timedelta(days=1)
         fake_data: dict[str, float] = await self._generate_metrics_data(
             start_date, end_date
         )
         latest_timestamp = max(fake_data.keys())
-        fake_data[str(int(latest_timestamp)-1)] = fake_data.pop(latest_timestamp) # rename the latest timestamp by (timestamp - 1 sec)
+        fake_data[str(int(latest_timestamp) - 1)] = fake_data.pop(
+            latest_timestamp
+        )  # rename the latest timestamp by (timestamp - 1 sec)
 
         return EcosMockServer._success_response(
             data={
@@ -430,7 +435,7 @@ class EcosMockServer:
             }
         )
 
-    async def catch_all(self, request: web.Request):
+    async def catch_all(self, request: web.Request) -> web.Response:
         """Catch all endpoint."""
         # if request.path starts with /api/client/ then
         if request.path.startswith("/api/client/"):
@@ -453,7 +458,7 @@ class EcosMockServer:
         # else
         return web.HTTPBadGateway()
 
-    def setup_routes(self):
+    def setup_routes(self) -> None:
         """Configure routes."""
         logger.info("Setting up routes")
         self.app.add_routes(
@@ -480,14 +485,14 @@ class EcosMockServer:
             ]
         )
 
-    def run(self):
+    def run(self) -> None:
         """Run the server."""
         logger.info("Running server")
         self.setup_routes()
         self.url = f"http://{self.host}:{self.port}"
         web.run_app(self.app, host=self.host, port=self.port)
 
-    async def start(self):
+    async def start(self) -> None:
         """Start the server asynchronously."""
         logger.info("Starting server")
         self.setup_routes()
@@ -497,7 +502,7 @@ class EcosMockServer:
         self.url = f"http://{self.host}:{self.port}"
         await site.start()
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop the server."""
         logger.info("Stopping server")
         if self._runner is not None:
@@ -511,7 +516,7 @@ if __name__ == "__main__":
 """
 
 
-async def main():
+async def main() -> None:
     """Run the server."""
     server = EcosMockServer()
     await server.start()

@@ -4,7 +4,7 @@ import pytest
 from pytest_asyncio import is_async_test
 
 
-def pytest_collection_modifyitems(items):
+def pytest_collection_modifyitems(items) -> None:
     """Run all test in the same event loop.
 
     https://pytest-asyncio.readthedocs.io/en/latest/how-to-guides/run_class_tests_in_same_loop.html
