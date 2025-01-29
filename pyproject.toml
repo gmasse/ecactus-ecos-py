@@ -71,6 +71,10 @@ disallow_untyped_decorators = true
 disallow_untyped_defs = true
 warn_return_any = true
 warn_unreachable = true
+exclude = [
+    '^tests/test_.*\.py$',
+    '^tests/conftest\.py$'
+]
 
 [tool.ruff]
 required-version = ">=0.9.1"
