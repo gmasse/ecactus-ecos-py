@@ -17,6 +17,7 @@ plugins:
         paths: [src]  # search packages in the src folder
 - search
 nav:
+  - Home: index.md
   - api.md
 repo_url: https://github.com/gmasse/ecactus-ecos
 watch:
