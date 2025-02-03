@@ -23,14 +23,14 @@ class _BaseEcos:
 
         Args:
             datacenter (Optional[str]): The location of the ECOS API datacenter.
-                Can be one of 'CN', 'EU', or 'AU'. If not specified and 'url' is not provided,
-                a ValueError is raised.
-            url (Optional[str]): The URL of the ECOS API. If specified, 'datacenter' is ignored.
+                Can be one of `CN`, `EU`, or `AU`. If not specified and `url` is not provided,
+                a `ValueError` is raised.
+            url (Optional[str]): The URL of the ECOS API. If specified, `datacenter` is ignored.
             access_token (Optional[str]): The access token for authentication with the ECOS API.
             refresh_token (Optional[str]): The refresh token for authentication with the ECOS API.
 
         Raises:
-            ValueError: If 'datacenter' is not one of 'CN', 'EU', or 'AU' and 'url' is not provided.
+            ValueError: If `datacenter` is not one of `CN`, `EU`, or `AU` and `url` is not provided.
 
         """
         logger.info("Initializing session")
