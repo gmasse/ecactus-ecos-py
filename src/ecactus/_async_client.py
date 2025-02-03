@@ -121,16 +121,21 @@ class AsyncEcos(_BaseEcos):
         """Get user details.
 
         Returns:
-            { 'username': 'john.doe@acme.com',
-              'nickname': 'JohnD',
-              'email': 'john.doe@acme.com',
-              'phone': '',
-              'timeZoneId': '209',
-              'timeZone': 'GMT-05:00',
-              'timezoneName': 'America/Toronto',
-              'datacenterPhoneCode': 49,
-              'datacenter': 'EU',
-              'datacenterHost': 'https://api-ecos-eu.weiheng-tech.com' }
+            Details concerning the user. Example:
+                ``` py
+                {
+                    "username": "john.doe@acme.com",
+                    "nickname": "JohnD",
+                    "email": "john.doe@acme.com",
+                    "phone": "",
+                    "timeZoneId": "209",
+                    "timeZone": "GMT-05:00",
+                    "timezoneName": "America/Toronto",
+                    "datacenterPhoneCode": 49,
+                    "datacenter": "EU",
+                    "datacenterHost": "https://api-ecos-eu.weiheng-tech.com"
+                }
+                ```
 
         """
         logger.info("Get user info")
@@ -140,26 +145,33 @@ class AsyncEcos(_BaseEcos):
         """Get a list of homes.
 
         Returns:
-          [
-            { 'homeId': '1234567890123456789',
-              'homeName': 'SHARED_DEVICES',
-              'homeType': 0,
-              'longitude': None,
-              'latitude': None,
-              'homeDeviceNumber': 1,
-              'relationType': 1,
-              'createTime': 946684800000,
-              'updateTime': 946684800000 },
-            { 'homeId': '9876543210987654321',
-              'homeName': 'My Home',
-              'homeType': 1,
-              'longitude': None,
-              'latitude': None,
-              'homeDeviceNumber': 0,
-              'relationType': 1,
-              'createTime': 946684800000,
-              'updateTime': 946684800000 }
-          ]
+            A list of homes. Example:
+                ``` py
+                [
+                    {
+                        "homeId": "1234567890123456789",
+                        "homeName": "SHARED_DEVICES",
+                        "homeType": 0,
+                        "longitude": None,
+                        "latitude": None,
+                        "homeDeviceNumber": 1,
+                        "relationType": 1,
+                        "createTime": 946684800000,
+                        "updateTime": 946684800000,
+                    },
+                    {
+                        "homeId": "9876543210987654321",
+                        "homeName": "My Home",
+                        "homeType": 1,
+                        "longitude": None,
+                        "latitude": None,
+                        "homeDeviceNumber": 0,
+                        "relationType": 1,
+                        "createTime": 946684800000,
+                        "updateTime": 946684800000,
+                    },
+                ]
+                ```
 
         """
         logger.info("Get home list")
@@ -178,27 +190,32 @@ class AsyncEcos(_BaseEcos):
             home_id (int): The home ID to get devices for.
 
         Returns:
-          [
-            { 'deviceId': '1234567890123456789',
-              'deviceAliasName': 'My Device',
-              'state': 0,
-              'batterySoc': 0.0,
-              'batteryPower': 0,
-              'socketSwitch': None,
-              'chargeStationMode': None,
-              'vpp': False,
-              'type': 1,
-              'deviceSn': 'SHC000000000000001',
-              'agentId': '9876543210987654321',
-              'lon': 0.0,
-              'lat': 0.0,
-              'deviceType': 'XX-XXX123       ',
-              'resourceSeriesId': 101,
-              'resourceTypeId': 7,
-              'master': 0,
-              'emsSoftwareVersion': '000-00000-00',
-              'dsp1SoftwareVersion': '111-11111-11' }
-            ]
+            A list of devices. Example:
+                ``` py
+                [
+                    {
+                        "deviceId": "1234567890123456789",
+                        "deviceAliasName": "My Device",
+                        "state": 0,
+                        "batterySoc": 0.0,
+                        "batteryPower": 0,
+                        "socketSwitch": None,
+                        "chargeStationMode": None,
+                        "vpp": False,
+                        "type": 1,
+                        "deviceSn": "SHC000000000000001",
+                        "agentId": "9876543210987654321",
+                        "lon": 0.0,
+                        "lat": 0.0,
+                        "deviceType": "XX-XXX123       ",
+                        "resourceSeriesId": 101,
+                        "resourceTypeId": 7,
+                        "master": 0,
+                        "emsSoftwareVersion": "000-00000-00",
+                        "dsp1SoftwareVersion": "111-11111-11",
+                    },
+                ]
+                ```
 
         """
         logger.info("Get devices for home %d", home_id)
@@ -207,28 +224,33 @@ class AsyncEcos(_BaseEcos):
         )
 
     async def get_all_devices(self) -> JSON:
-        """Get a list of devices.
+        """Get a list of all the devices.
 
         Returns:
-          [
-            { 'deviceId': '1234567890123456789',
-              'deviceAliasName': 'My Device',
-              'wifiSn': 'azerty123456789azertyu',
-              'state': 0,
-              'weight': 0,
-              'temp': None,
-              'icon': None,
-              'vpp': False,
-              'master': 0,
-              'type': 1,
-              'deviceSn': 'SHC000000000000001',
-              'agentId': '',
-              'lon': 0.0,
-              'lat': 0.0,
-              'category': None,
-              'model': None,
-              'deviceType': None }
-            ]
+            A list of devices. Example:
+                ``` py
+                [
+                    {
+                        "deviceId": "1234567890123456789",
+                        "deviceAliasName": "My Device",
+                        "wifiSn": "azerty123456789azertyu",
+                        "state": 0,
+                        "weight": 0,
+                        "temp": None,
+                        "icon": None,
+                        "vpp": False,
+                        "master": 0,
+                        "type": 1,
+                        "deviceSn": "SHC000000000000001",
+                        "agentId": "",
+                        "lon": 0.0,
+                        "lat": 0.0,
+                        "category": None,
+                        "model": None,
+                        "deviceType": None,
+                    },
+                ]
+                ```
 
         """
         logger.info("Get devices for every homes")
@@ -241,16 +263,22 @@ class AsyncEcos(_BaseEcos):
             device_id (int): The device ID to get power metrics for.
 
         Returns:
-          { 'solarPowerDps':
-            { '946685100': 0.0,
-              '946685400': 0.0,
-              ...
-              '946733700': 0.0 },
-            'batteryPowerDps': { ... },
-            'gridPowerDps': { ... },
-            'meterPowerDps': { ... },
-            'homePowerDps': { ... },
-            'epsPowerDps': { ... } }
+            Multiple metrics of the current day. Example:
+                ``` py
+                {
+                    "solarPowerDps": {
+                        "946685100": 0.0,
+                        "946685400": 0.0,
+                        ...
+                        "946733700": 0.0,
+                    },
+                    "batteryPowerDps": {...},
+                    "gridPowerDps": {...},
+                    "meterPowerDps": {...},
+                    "homePowerDps": {...},
+                    "epsPowerDps": {...},
+                }
+                ```
 
         """
         logger.info("Get current day data for device %d", device_id)
@@ -265,20 +293,27 @@ class AsyncEcos(_BaseEcos):
             home_id (int): The home ID to get current power for.
 
         Returns:
-          { 'batteryPower': 0,
-            'epsPower': 0,
-            'gridPower': 23,
-            'homePower': 1118,
-            'meterPower': 1118,
-            'solarPower': 0,
-            'chargePower': 0,
-            'batterySocList': [
-              { 'deviceSn': 'SHC000000000000001',
-                'batterySoc': 0.0,
-                'sysRunMode': 1,
-                'isExistSolar': True,
-                'sysPowerConfig': 3 }
-            ] }
+            Power data. Example:
+                ``` py
+                {
+                    "batteryPower": 0,
+                    "epsPower": 0,
+                    "gridPower": 23,
+                    "homePower": 1118,
+                    "meterPower": 1118,
+                    "solarPower": 0,
+                    "chargePower": 0,
+                    "batterySocList": [
+                        {
+                            "deviceSn": "SHC000000000000001",
+                            "batterySoc": 0.0,
+                            "sysRunMode": 1,
+                            "isExistSolar": True,
+                            "sysPowerConfig": 3,
+                        }
+                    ],
+                }
+                ```
 
         """
         logger.info("Get realtime data for home %d", home_id)
@@ -294,22 +329,29 @@ class AsyncEcos(_BaseEcos):
         Args:
             device_id (int): The device ID to get history for.
             start_date (datetime): The start date.
-            period_type (int):
-                0 = daily value of the calendar month corresponding to start_date
-                1 = today daily values (start_date is ignored) (?)
-                2 = daily values of the current month (start_date is ignored)
-                3 = same than 2 ?
-                4 = total for the current month (start_date is ignored)
+            period_type (int): Possible value:
+
+                - `0`: daily values of the calendar month corresponding to `start_date`
+                - `1`: today daily values (`start_date` is ignored) (?)
+                - `2`: daily values of the current month (`start_date` is ignored)
+                - `3`: same than 2 ?
+                - `4`: total for the current month (`start_date` is ignored)
 
         Returns:
-          { 'energyConsumption': 1221.2,
-            'solarPercent': 47.0,
-            'homeEnergyDps':
-              { '1733112000': 39.6,
-                '1733198400': 68.1,
-                '1733284800': 75.3,
-                ...
-                '1735707599': 41.3 } }
+            Data and metrics corresponding to the defined period. Example:
+                ``` py
+                {
+                    "energyConsumption": 1221.2,
+                    "solarPercent": 47.0,
+                    "homeEnergyDps": {
+                        "1733112000": 39.6,
+                        "1733198400": 68.1,
+                        "1733284800": 75.3,
+                        ...
+                        "1735707599": 41.3,
+                    },
+                }
+                ```
 
         """
         logger.info("Get history for device %d", device_id)
@@ -331,48 +373,59 @@ class AsyncEcos(_BaseEcos):
         Args:
             device_id (int): The device ID to get data for.
             start_date (datetime): The start date.
-            period_type (int):
-                0 = 5-minute power measurement for the calendar day corresponding to start_date (insightConsumptionDataDto is None)
-                1 (not implemented)
-                2 = daily energy for the calendar month corresponding to start_date (deviceRealtimeDto is None)
-                3 (not implemented)
-                4 = monthly energy for the calendar year corresponding to start_date (deviceRealtimeDto is None)
-                5 = yearly energy, start_date is ignored? (deviceRealtimeDto is None)
+            period_type (int): Possible value:
+
+                - `0`: 5-minute power measurement for the calendar day corresponding to `start_date` (`insightConsumptionDataDto` is `None`)
+                - `1`: (not implemented)
+                - `2`: daily energy for the calendar month corresponding to `start_date` (`deviceRealtimeDto` is `None`)
+                - `3`: (not implemented)
+                - `4`: monthly energy for the calendar year corresponding to `start_date` (`deviceRealtimeDto` is `None`)
+                - `5`: yearly energy, `start_date` is ignored (?) (`deviceRealtimeDto` is `None`)
 
         Returns:
-          { 'selfPowered': 0,
-            'deviceRealtimeDto':
-              { 'solarPowerDps':
-                { '1732129500': 0.0,
-                  '1732129800': 0.0,
-                  ...
-                  '1732132800': 0.0 },
-                'batteryPowerDps': { ... },
-                'gridPowerDps': { ... },
-                'meterPowerDps': { ... },
-                'homePowerDps': { ... },
-                'epsPowerDps': { ... } },
-            'deviceStatisticsDto':
-              { 'consumptionEnergy': 0.0,
-                'fromBattery': 0.0,
-                'toBattery': 0.0,
-                'fromGrid': 0.0,
-                'toGrid': 0.0,
-                'fromSolar': 0.0,
-                'eps': 0.0 },
-            'insightConsumptionDataDto':
-              { 'fromBatteryDps':
-                { '1733976000': 0.0,
-                  '1733889600': 0.0,
-                  ...
-                  '1734062400': 0.0 },
-                'toBatteryDps': { ... },
-                'fromGridDps': { ... },
-                'toGridDps': { ... },
-                'fromSolarDps': { ... },
-                'homeEnergyDps': { ... },
-                'epsDps': { ... },
-                'selfPoweredDps': { ... } } }
+            Statistics and metrics corresponding to the defined period. Example:
+                ``` py
+                {
+                    "selfPowered": 0,
+                    "deviceRealtimeDto": {
+                        "solarPowerDps": {
+                            "1732129500": 0.0,
+                            "1732129800": 0.0,
+                            ...
+                            "1732132800": 0.0,
+                        },
+                        "batteryPowerDps": {...},
+                        "gridPowerDps": {...},
+                        "meterPowerDps": {...},
+                        "homePowerDps": {...},
+                        "epsPowerDps": {...},
+                    },
+                    "deviceStatisticsDto": {
+                        "consumptionEnergy": 0.0,
+                        "fromBattery": 0.0,
+                        "toBattery": 0.0,
+                        "fromGrid": 0.0,
+                        "toGrid": 0.0,
+                        "fromSolar": 0.0,
+                        "eps": 0.0,
+                    },
+                    "insightConsumptionDataDto": {
+                        "fromBatteryDps": {
+                            "1733976000": 0.0,
+                            "1733889600": 0.0,
+                            ...
+                            "1734062400": 0.0,
+                        },
+                        "toBatteryDps": {...},
+                        "fromGridDps": {...},
+                        "toGridDps": {...},
+                        "fromSolarDps": {...},
+                        "homeEnergyDps": {...},
+                        "epsDps": {...},
+                        "selfPoweredDps": {...},
+                    },
+                }
+                ```
 
         """
         logger.info("Get insight for device %d", device_id)

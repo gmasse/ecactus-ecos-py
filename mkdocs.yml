@@ -1,0 +1,23 @@
+site_name: eCactus ECOS API Client
+theme:
+  name: material
+  features:
+    - toc.integrate
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+plugins:
+- mkdocstrings:
+    handlers:
+      python:
+        paths: [src]  # search packages in the src folder
+- search
+nav:
+  - api.md
+repo_url: https://github.com/gmasse/ecactus-ecos
+watch:
+  - src
