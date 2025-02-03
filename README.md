@@ -1,4 +1,5 @@
 # eCactus ECOS Python Client
+[![ci](https://github.com/gmasse/ecactus-ecos-py/actions/workflows/ci.yml/badge.svg)](https://github.com/gmasse/ecactus-ecos-py/actions/workflows/ci.yml)
 
 This Python client provides both synchronous and asynchronous interfaces to interact with the eCactus ECOS platform from WEIHENG Group for energy management. However, **this project is in its early stages, is not fully tested, and is not safe for production use**. Use it at your own risk.
 
