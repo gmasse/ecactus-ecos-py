@@ -16,7 +16,6 @@ authors = [
 description = "Python client library for eCactus ECOS API"
 readme = "README.md"
 license = "GPL-3.0-only"
-license-files = ["LICEN[CS]E.*"]
 keywords = ["egg", "bacon", "sausage", "tomatoes", "Lobster Thermidor"]
 classifiers = [
     "Development Status :: 4 - Beta",
