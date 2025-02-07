@@ -3,29 +3,32 @@ requires = ["setuptools >= 75.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ecactus-ecos"
+name = "ecactus-ecos-py"
 version = "0.1.0"
 dependencies = [
     "requests >= 2.32.3",
     "aiohttp >= 3.10.10"
 ]
+requires-python = ">=3.10"
 authors = [
   { name="Germain Masse", email="g-dev@masse.me" },
 ]
 description = "Python client library for eCactus ECOS API"
 readme = "README.md"
-requires-python = ">=3.10"
+license = {text = "GPL-3.0-only"}
+keywords = ["api-client", "ecactus", "ecos", "weiheng", "energy-management", "solar-panels", "battery-management-system"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Topic :: Home Automation",
+    "Topic :: Home Automation"
 ]
 
 [project.urls]
-Homepage = "https://github.com/gmasse/ecactus-ecos"
+Homepage = "https://github.com/gmasse/ecactus-ecos-py"
+Documentation = "https://g.masse.me/ecactus-ecos-py/"
+Repository = "https://github.com/gmasse/ecactus-ecos-py.git"
 
 [project.optional-dependencies]
 dev = [
