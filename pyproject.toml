@@ -15,15 +15,14 @@ authors = [
 ]
 description = "Python client library for eCactus ECOS API"
 readme = "README.md"
-license = "GPL-3.0-only"
-keywords = ["egg", "bacon", "sausage", "tomatoes", "Lobster Thermidor"]
+license = {text = "GPL-3.0-only"}
+keywords = ["api-client", "ecactus", "ecos", "weiheng", "energy-management", "solar-panels", "battery-management-system"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Topic :: Home Automation",
+    "Topic :: Home Automation"
 ]
 
 [project.urls]
