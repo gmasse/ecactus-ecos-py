@@ -14,7 +14,7 @@ This Python client provides both synchronous and asynchronous interfaces to inte
 ```bash
 python -m venv venv
 source venv/bin/activate
-pip install git+https://github.com/gmasse/ecactus-ecos-py.git
+pip install ecactus-ecos-py
 ```
 
 ## Usage
