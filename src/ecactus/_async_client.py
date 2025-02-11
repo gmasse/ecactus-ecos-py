@@ -179,7 +179,7 @@ class AsyncEcos(_BaseEcos):
         for (
             home
         ) in home_list:  # force the name of the home for shared devices (homeType=0)
-            if home["homeType"] == "0":
+            if int(home["homeType"]) == 0:
                 home["homeName"] = "SHARED_DEVICES"
         return home_list
 
