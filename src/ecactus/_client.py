@@ -180,7 +180,7 @@ class Ecos(_BaseEcos):
                 home["homeName"] = "SHARED_DEVICES"
         return home_list
 
-    def get_devices(self, home_id: int) -> JSON:
+    def get_devices(self, home_id: str) -> JSON:
         """Get a list of devices for a home.
 
         Args:
@@ -215,7 +215,7 @@ class Ecos(_BaseEcos):
                 ```
 
         """
-        logger.info("Get devices for home %d", home_id)
+        logger.info("Get devices for home %s", home_id)
         return self._get(
             "/api/client/v2/home/device/query", payload={"homeId": home_id}
         )
@@ -253,7 +253,7 @@ class Ecos(_BaseEcos):
         logger.info("Get devices for every homes")
         return self._get("/api/client/home/device/list")
 
-    def get_realtime_device_data(self, device_id: int) -> JSON:
+    def get_realtime_device_data(self, device_id: str) -> JSON:
         """Get power metrics of the current day until now.
 
         Args:
@@ -278,12 +278,12 @@ class Ecos(_BaseEcos):
                 ```
 
         """
-        logger.info("Get current day data for device %d", device_id)
+        logger.info("Get current day data for device %s", device_id)
         return self._post(
             "/api/client/home/now/device/realtime", payload={"deviceId": device_id}
         )
 
-    def get_realtime_home_data(self, home_id: int) -> JSON:
+    def get_realtime_home_data(self, home_id: str) -> JSON:
         """Get current power for the home.
 
         Args:
@@ -313,13 +313,13 @@ class Ecos(_BaseEcos):
                 ```
 
         """
-        logger.info("Get realtime data for home %d", home_id)
+        logger.info("Get realtime data for home %s", home_id)
         return self._get(
             "/api/client/v2/home/device/runData", payload={"homeId": home_id}
         )
 
     def get_history(
-        self, device_id: int, start_date: datetime, period_type: int
+        self, device_id: str, start_date: datetime, period_type: int
     ) -> JSON:
         """Get aggregated energy for a period.
 
@@ -351,7 +351,7 @@ class Ecos(_BaseEcos):
                 ```
 
         """
-        logger.info("Get history for device %d", device_id)
+        logger.info("Get history for device %s", device_id)
         start_ts = int(start_date.timestamp())
         return self._post(
             "/api/client/home/history/home",
@@ -363,7 +363,7 @@ class Ecos(_BaseEcos):
         )
 
     def get_insight(
-        self, device_id: int, start_date: datetime, period_type: int
+        self, device_id: str, start_date: datetime, period_type: int
     ) -> JSON:
         """Get energy metrics and statistics of a device for a period.
 
@@ -425,7 +425,7 @@ class Ecos(_BaseEcos):
                 ```
 
         """
-        logger.info("Get insight for device %d", device_id)
+        logger.info("Get insight for device %s", device_id)
         start_ts = int(start_date.timestamp() * 1000)  # timestamp in milliseconds
         return self._post(
             "/api/client/v2/device/three/device/insight",
