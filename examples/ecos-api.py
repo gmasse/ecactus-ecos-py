@@ -73,6 +73,8 @@ def main() -> None:
         #history = session.get_history(int(device["deviceId"]), start_date, 4)
         #print(history)  # noqa: T201
 
+        print(session.get_realtime_device_data(device["deviceId"]))  # noqa: T201
+
         insight = session.get_insight(
             int(device["deviceId"]), start_date, period_type=5
         )
