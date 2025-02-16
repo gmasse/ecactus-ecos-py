@@ -187,7 +187,7 @@ class AsyncEcos(_BaseEcos):
         """Get a list of devices for a home.
 
         Args:
-            home_id (int): The home ID to get devices for.
+            home_id (str): The home ID to get devices for.
 
         Returns:
             A list of devices. Example:
@@ -260,7 +260,7 @@ class AsyncEcos(_BaseEcos):
         """Get power metrics of the current day until now.
 
         Args:
-            device_id (int): The device ID to get power metrics for.
+            device_id (str): The device ID to get power metrics for.
 
         Returns:
             Multiple metrics of the current day. Example:
@@ -290,7 +290,7 @@ class AsyncEcos(_BaseEcos):
         """Get current power for the home.
 
         Args:
-            home_id (int): The home ID to get current power for.
+            home_id (str): The home ID to get current power for.
 
         Returns:
             Power data. Example:
@@ -372,7 +372,7 @@ class AsyncEcos(_BaseEcos):
         """Get aggregated energy for a period.
 
         Args:
-            device_id (int): The device ID to get history for.
+            device_id (str): The device ID to get history for.
             start_date (datetime): The start date.
             period_type (int): Possible value:
 
@@ -416,7 +416,7 @@ class AsyncEcos(_BaseEcos):
         """Get energy metrics and statistics of a device for a period.
 
         Args:
-            device_id (int): The device ID to get data for.
+            device_id (str): The device ID to get data for.
             start_date (datetime): The start date.
             period_type (int): Possible value:
 
