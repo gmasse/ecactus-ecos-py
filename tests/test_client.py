@@ -99,6 +99,16 @@ def test_get_all_devices(mock_server, client):
     assert devices[0]["deviceAliasName"] == "My Device"
 
 
+def test_get_today_device_data(mock_server, client):
+    """Test get current day device data."""
+    with pytest.raises(ecactus.HttpError) as err:
+        client.get_today_device_data(device_id=0)
+    assert str(err.getrepr(style="value")) == "HTTP error: 401 unauthorized device"
+
+    data = client.get_today_device_data(device_id=1234567890123456789)
+    assert len(data["solarPowerDps"]) > 0
+
+
 def test_get_realtime_device_data(mock_server, client):
     """Test get realtime device data."""
     with pytest.raises(ecactus.HttpError) as err:
@@ -106,13 +116,13 @@ def test_get_realtime_device_data(mock_server, client):
     assert str(err.getrepr(style="value")) == "HTTP error: 401 unauthorized device"
 
     data = client.get_realtime_device_data(device_id=1234567890123456789)
-    assert len(data["solarPowerDps"]) > 0
+    assert data.get("homePower") is not None
 
 
 def test_get_realtime_home_data(mock_server, client):
-    """Test get reatime home data."""
+    """Test get realtime home data."""
     with pytest.raises(ecactus.ApiResponseError) as err:
-        client.get_devices(home_id=0)
+        client.get_realtime_home_data(home_id=0)
     assert str(err.getrepr(style="value")) == "API call failed: 20450 Home does not exist."
 
     data = client.get_realtime_home_data(home_id=9876543210987654321)
@@ -134,6 +144,7 @@ async def test_get_history(mock_server, client):
     assert len(data["homeEnergyDps"]) == 1
 
     #TODO other period types
+
 
 async def test_get_insight(mock_server, client):
     """Test get insight."""

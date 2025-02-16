@@ -179,15 +179,15 @@ class AsyncEcos(_BaseEcos):
         for (
             home
         ) in home_list:  # force the name of the home for shared devices (homeType=0)
-            if home["homeType"] == "0":
+            if int(home["homeType"]) == 0:
                 home["homeName"] = "SHARED_DEVICES"
         return home_list
 
-    async def get_devices(self, home_id: int) -> JSON:
+    async def get_devices(self, home_id: str) -> JSON:
         """Get a list of devices for a home.
 
         Args:
-            home_id (int): The home ID to get devices for.
+            home_id (str): The home ID to get devices for.
 
         Returns:
             A list of devices. Example:
@@ -218,7 +218,7 @@ class AsyncEcos(_BaseEcos):
                 ```
 
         """
-        logger.info("Get devices for home %d", home_id)
+        logger.info("Get devices for home %s", home_id)
         return await self._get(
             "/api/client/v2/home/device/query", payload={"homeId": home_id}
         )
@@ -256,11 +256,11 @@ class AsyncEcos(_BaseEcos):
         logger.info("Get devices for every homes")
         return await self._get("/api/client/home/device/list")
 
-    async def get_realtime_device_data(self, device_id: int) -> JSON:
+    async def get_today_device_data(self, device_id: str) -> JSON:
         """Get power metrics of the current day until now.
 
         Args:
-            device_id (int): The device ID to get power metrics for.
+            device_id (str): The device ID to get power metrics for.
 
         Returns:
             Multiple metrics of the current day. Example:
@@ -281,16 +281,16 @@ class AsyncEcos(_BaseEcos):
                 ```
 
         """
-        logger.info("Get current day data for device %d", device_id)
+        logger.info("Get current day data for device %s", device_id)
         return await self._post(
             "/api/client/home/now/device/realtime", payload={"deviceId": device_id}
         )
 
-    async def get_realtime_home_data(self, home_id: int) -> JSON:
+    async def get_realtime_home_data(self, home_id: str) -> JSON:
         """Get current power for the home.
 
         Args:
-            home_id (int): The home ID to get current power for.
+            home_id (str): The home ID to get current power for.
 
         Returns:
             Power data. Example:
@@ -316,18 +316,63 @@ class AsyncEcos(_BaseEcos):
                 ```
 
         """
-        logger.info("Get realtime data for home %d", home_id)
+        logger.info("Get realtime data for home %s", home_id)
         return await self._get(
             "/api/client/v2/home/device/runData", payload={"homeId": home_id}
         )
 
+    async def get_realtime_device_data(self, device_id: str) -> JSON:
+        """Get current power for a device.
+
+        Args:
+            device_id (str): The device ID to get current power for.
+
+        Returns:
+            Power data. Example (without solar production):
+                ``` py
+                {
+                    "batterySoc": 0,
+                    "batteryPower": 0,
+                    "epsPower": 0,
+                    "gridPower": 0,
+                    "homePower": 3581,
+                    "meterPower": 3581,
+                    "solarPower": 0,
+                    "sysRunMode": 0,
+                    "isExistSolar": true,
+                    "sysPowerConfig": 3,
+                }
+                ```
+                Example when all solar production is used by home:
+                ``` py
+                {'batterySoc': 0.0, 'batteryPower': 0, 'epsPower': 0, 'gridPower': 2479, 'homePower': 3674, 'meterPower': 1102, 'solarPower': 2572, 'sysRunMode': 1, 'isExistSolar': True, 'sysPowerConfig': 3}
+                # Home 3674 (homePower)
+                # PV -> Home 2572 (solarPower)
+                # Grid -> Home 1102 (meterPower)
+                # gridPower (could be related to operating mode with % reserved SOC for grid connection)
+                ```
+                Example when solar over production is injected to the grid:
+                ``` py
+                {'batterySoc': 0.0, 'batteryPower': 0, 'epsPower': 0, 'gridPower': 4194, 'homePower': 3798, 'meterPower': -650, 'solarPower': 4448, 'sysRunMode': 1, 'isExistSolar': True, 'sysPowerConfig': 3}
+                # Home 3798
+                # PV -> Home 4448
+                # Home -> Grid 650
+                # gridPower (could be related to operating mode with % reserved SOC for grid connection)
+                ```
+
+        """
+        logger.info("Get realtime data for device %s", device_id)
+        return await self._post(
+            "/api/client/home/now/device/runData", payload={"deviceId": device_id}
+        )
+
     async def get_history(
-        self, device_id: int, start_date: datetime, period_type: int
+        self, device_id: str, start_date: datetime, period_type: int
     ) -> JSON:
         """Get aggregated energy for a period.
 
         Args:
-            device_id (int): The device ID to get history for.
+            device_id (str): The device ID to get history for.
             start_date (datetime): The start date.
             period_type (int): Possible value:
 
@@ -354,7 +399,7 @@ class AsyncEcos(_BaseEcos):
                 ```
 
         """
-        logger.info("Get history for device %d", device_id)
+        logger.info("Get history for device %s", device_id)
         start_ts = int(start_date.timestamp())
         return await self._post(
             "/api/client/home/history/home",
@@ -366,12 +411,12 @@ class AsyncEcos(_BaseEcos):
         )
 
     async def get_insight(
-        self, device_id: int, start_date: datetime, period_type: int
+        self, device_id: str, start_date: datetime, period_type: int
     ) -> JSON:
         """Get energy metrics and statistics of a device for a period.
 
         Args:
-            device_id (int): The device ID to get data for.
+            device_id (str): The device ID to get data for.
             start_date (datetime): The start date.
             period_type (int): Possible value:
 
@@ -428,7 +473,7 @@ class AsyncEcos(_BaseEcos):
                 ```
 
         """
-        logger.info("Get insight for device %d", device_id)
+        logger.info("Get insight for device %s", device_id)
         start_ts = int(start_date.timestamp() * 1000)  # timestamp in milliseconds
         return await self._post(
             "/api/client/v2/device/three/device/insight",

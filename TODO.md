@@ -1,21 +1,28 @@
 # TODO List
 
-## 🔥 High Priority  
+## 🔥 High Priority
+- [ ] Standardize error returns using customized exceptions
 - [ ] API functions should return classes instead of JSON-like objects OR use pydantic for data validation
+- [ ] Accept country in place of datacenter for client initialization
+      (based on JSON from https://api-ecos-hu.weiheng-tech.com/api/client/guide/datacenter)
 
-## 🚀 Medium Priority  
+## 🚀 Medium Priority
+- [ ] Increase unit test coverage
+- [ ] Find and implement other devices type than inverter (ie battery, charger, ...)
 - [ ] Implement other known API endpoints ([list](#uncovered-endpoints))
+- [ ] Implement uncovered errors ([list](#uncovered-errors))
 
-## 📌 Low Priority  
+## 📌 Low Priority
 - [ ] Identify and document any new API endpoints
 
 ---
-_Last updated: 2025-02-02_
+_Last updated: 2025-02-15_
 
 
 
 ## Addendum
 ### Uncovered endpoints
+
 #### /api/client/v2/home/device/energy
 
 Request: `https://api-ecos-eu.weiheng-tech.com/api/client/v2/home/device/energy?homeId=1234567890987654321`
@@ -149,4 +156,26 @@ Output:
   "message": "success",
   "success": true
 }
+```
+
+### Uncovered errors
+
+#### 405 Method Not Allowed
+```
+2025-02-15 10:34:23,213 - DEBUG - https://api-ecos-eu.weiheng-tech.com:443 "POST /api/client/v2/home/device/runData HTTP/1.1" 405 None
+2025-02-15 10:34:23,213 - DEBUG - {"timestamp":1739633663171,"status":405,"error":"Method Not Allowed","message":"","path":"/v2/home/device/runData"}
+```
+
+#### 415 Unsupported Media Type
+```
+> POST /api/client/home/now/device/runData HTTP/1.1
+> Host: api-ecos-eu.weiheng-tech.com
+> Authorization: ***
+> Content-Type: application/x-www-form-urlencoded
+> 
+* upload completely sent off: 33 bytes
+< Content-Type: application/json
+< 
+* Connection #0 to host api-ecos-eu.weiheng-tech.com left intact
+{"timestamp":1739636954905,"status":415,"error":"Unsupported Media Type","message":"","path":"/home/now/device/runData"}%
 ```
