@@ -284,10 +284,10 @@ class EcosMockServer:
             metrics_data[str(timestamp)] = float(fake_value / 10)
         return metrics_data
 
-    async def handle_get_realtime_device_data(
+    async def handle_get_today_device_data(
         self, request: web.Request
     ) -> web.Response:
-        """Mock get realtime device data endpoint."""
+        """Mock get today device data endpoint."""
         if not self._is_authorized_request(request):
             return EcosMockServer._unauthorized_response()
         request_payload = await request.json()
@@ -342,6 +342,36 @@ class EcosMockServer:
                         "sysPowerConfig": 3,
                     }
                 ],
+            }
+        )
+
+    async def handle_get_realtime_device_data(
+        self, request: web.Request
+    ) -> web.Response:
+        """Mock get realtime device data endpoint."""
+        if not self._is_authorized_request(request):
+            return EcosMockServer._unauthorized_response()
+        request_payload = await request.json()
+        logger.debug(request_payload)
+        if str(request_payload.get("deviceId")) != "1234567890123456789":
+            return EcosMockServer._response(
+                code=20424,
+                message="unauthorized device",
+                success=False,
+                http_status=401,
+            )
+        return EcosMockServer._success_response(
+            data={
+                "batterySoc": 0,
+                "batteryPower": 0,
+                "epsPower": 0,
+                "gridPower": 0,
+                "homePower": 3581,
+                "meterPower": 3581,
+                "solarPower": 0,
+                "sysRunMode": 0,
+                "isExistSolar": True,
+                "sysPowerConfig": 3
             }
         )
 
@@ -470,12 +500,13 @@ class EcosMockServer:
                 web.get("/api/client/home/device/list", self.handle_get_all_devices),
                 web.post(
                     "/api/client/home/now/device/realtime",
-                    self.handle_get_realtime_device_data,
+                    self.handle_get_today_device_data,
                 ),
                 web.get(
                     "/api/client/v2/home/device/runData",
                     self.handle_get_realtime_home_data,
                 ),
+                web.post("/api/client/home/now/device/runData", self.handle_get_realtime_device_data),
                 web.post("/api/client/home/history/home", self.handle_get_history),
                 web.post(
                     "/api/client/v2/device/three/device/insight",
