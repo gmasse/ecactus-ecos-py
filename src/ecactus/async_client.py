@@ -7,8 +7,8 @@ from typing import Any
 
 import aiohttp
 
-from ._base import JSON, _BaseEcos
-from ._exceptions import ApiResponseError, HttpError, InvalidJsonError
+from .base import JSON, _BaseEcos
+from .exceptions import ApiResponseError, HttpError, InvalidJsonError
 
 # Configure logging
 logger = logging.getLogger(__name__)
