@@ -1,7 +1,7 @@
 # TODO List
 
 ## 🔥 High Priority
-- [ ] Standardize error returns using customized exceptions
+- [x] Standardize error returns using customized exceptions
 - [ ] API functions should return classes instead of JSON-like objects OR use pydantic for data validation
 - [ ] Accept country in place of datacenter for client initialization
       (based on JSON from https://api-ecos-hu.weiheng-tech.com/api/client/guide/datacenter)
@@ -16,7 +16,7 @@
 - [ ] Identify and document any new API endpoints
 
 ---
-_Last updated: 2025-02-15_
+_Last updated: 2025-02-22_
 
 
 

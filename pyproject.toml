@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ecactus-ecos-py"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
     "requests >= 2.32.3",
     "aiohttp >= 3.10.10"
@@ -39,7 +39,8 @@ dev = [
     "pytest-cov == 6.0.0",
     "mkdocs == 1.6.1",
     "mkdocs-material == 9.5.50",
-    "mkdocstrings[python] == 0.27.0"
+    "mkdocstrings == 0.28.1",
+    "mkdocstrings-python == 1.16.1"
 ]
 
 [tool.pytest.ini_options]

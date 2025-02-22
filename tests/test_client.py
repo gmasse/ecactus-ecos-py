@@ -9,6 +9,13 @@ from aiohttp import web
 import pytest
 
 import ecactus
+from ecactus.exceptions import (
+    AuthenticationError,
+    HomeDoesNotExistError,
+    ParameterVerificationFailedError,
+    UnauthorizedDeviceError,
+    UnauthorizedError,
+)
 
 from .mock_server import EcosMockServer  # noqa: TID251
 
@@ -60,108 +67,112 @@ def client(mock_server):
     """Return an ECOS client."""
     return ecactus.Ecos(url=mock_server.url)
 
+@pytest.fixture(scope="session")
+def bad_client(mock_server):
+    """Return an ECOS client with wrong authentication token."""
+    return ecactus.Ecos(url=mock_server.url, access_token="wrong_token")
 
 def test_login(mock_server, client):
     """Test login."""
-    with pytest.raises(ecactus.ApiResponseError):
+    with pytest.raises(AuthenticationError):
         client.login("wrong_login", "wrong_password")
     client.login(LOGIN, PASSWORD)
     assert client.access_token == mock_server.access_token
     assert client.refresh_token == mock_server.refresh_token
 
 
-def test_get_user_info(caplog, mock_server, client):
+def test_get_user_info(client, bad_client):
     """Test get user info."""
-    caplog.set_level(logging.DEBUG)
+    #caplog.set_level(logging.DEBUG)
+    with pytest.raises(UnauthorizedError):
+        bad_client.get_user_info()
     user_info = client.get_user_info()
     assert user_info["username"] == LOGIN
 
 
-def test_get_homes(mock_server, client):
+def test_get_homes(client, bad_client):
     """Test get homes."""
+    with pytest.raises(UnauthorizedError):
+        bad_client.get_homes()
     homes = client.get_homes()
     assert homes[1]["homeName"] == "My Home"
 
 
-def test_get_devices(mock_server, client):
+def test_get_devices(client, bad_client):
     """Test get devices."""
-    with pytest.raises(ecactus.ApiResponseError) as err:
+    with pytest.raises(UnauthorizedError):
+        bad_client.get_devices(home_id=0)
+    with pytest.raises(HomeDoesNotExistError):
         client.get_devices(home_id=0)
-    assert str(err.getrepr(style="value")) == "API call failed: 20450 Home does not exist."
-
     devices = client.get_devices(home_id=9876543210987654321)
     assert devices[0]["deviceAliasName"] == "My Device"
 
 
-def test_get_all_devices(mock_server, client):
+def test_get_all_devices(client, bad_client):
     """Test get all devices."""
+    with pytest.raises(UnauthorizedError):
+        bad_client.get_all_devices()
     devices = client.get_all_devices()
     assert devices[0]["deviceAliasName"] == "My Device"
 
 
-def test_get_today_device_data(mock_server, client):
+def test_get_today_device_data(client, bad_client):
     """Test get current day device data."""
-    with pytest.raises(ecactus.HttpError) as err:
+    with pytest.raises(UnauthorizedError):
+        bad_client.get_today_device_data(device_id=0)
+    with pytest.raises(UnauthorizedDeviceError):
         client.get_today_device_data(device_id=0)
-    assert str(err.getrepr(style="value")) == "HTTP error: 401 unauthorized device"
-
     data = client.get_today_device_data(device_id=1234567890123456789)
     assert len(data["solarPowerDps"]) > 0
 
 
-def test_get_realtime_device_data(mock_server, client):
+def test_get_realtime_device_data(client, bad_client):
     """Test get realtime device data."""
-    with pytest.raises(ecactus.HttpError) as err:
+    with pytest.raises(UnauthorizedError):
+        bad_client.get_realtime_device_data(device_id=0)
+    with pytest.raises(UnauthorizedDeviceError):
         client.get_realtime_device_data(device_id=0)
-    assert str(err.getrepr(style="value")) == "HTTP error: 401 unauthorized device"
-
     data = client.get_realtime_device_data(device_id=1234567890123456789)
     assert data.get("homePower") is not None
 
 
-def test_get_realtime_home_data(mock_server, client):
+def test_get_realtime_home_data(client, bad_client):
     """Test get realtime home data."""
-    with pytest.raises(ecactus.ApiResponseError) as err:
+    with pytest.raises(UnauthorizedError):
+        bad_client.get_realtime_home_data(home_id=0)
+    with pytest.raises(HomeDoesNotExistError):
         client.get_realtime_home_data(home_id=0)
-    assert str(err.getrepr(style="value")) == "API call failed: 20450 Home does not exist."
-
     data = client.get_realtime_home_data(home_id=9876543210987654321)
     assert data.get("homePower") is not None
 
 
-async def test_get_history(mock_server, client):
+async def test_get_history(client, bad_client):
     """Test get history."""
     now = datetime.now()
-    with pytest.raises(ecactus.HttpError) as err:
+    with pytest.raises(UnauthorizedError):
+        bad_client.get_history(device_id=0, start_date=now, period_type=0)
+    with pytest.raises(UnauthorizedDeviceError):
         client.get_history(device_id=0, start_date=now, period_type=0)
-    assert str(err.getrepr(style="value")) == "HTTP error: 401 unauthorized device"
-
-    with pytest.raises(ecactus.ApiResponseError) as err:
+    with pytest.raises(ParameterVerificationFailedError):
         client.get_history(device_id=1234567890123456789, start_date=now, period_type=5)
-    assert str(err.getrepr(style="value")) == "API call failed: 20424 Parameter verification failed"
-
     data = client.get_history(device_id=1234567890123456789, start_date=now, period_type=4)
     assert len(data["homeEnergyDps"]) == 1
 
     #TODO other period types
 
 
-async def test_get_insight(mock_server, client):
+async def test_get_insight(client, bad_client):
     """Test get insight."""
     now = datetime.now()
-    with pytest.raises(ecactus.HttpError) as err:
+    with pytest.raises(UnauthorizedError):
+        bad_client.get_insight(device_id=0, start_date=now, period_type=0)
+    with pytest.raises(UnauthorizedDeviceError):
         client.get_insight(device_id=0, start_date=now, period_type=0)
-    assert str(err.getrepr(style="value")) == "HTTP error: 401 unauthorized device"
-
-    with pytest.raises(ecactus.ApiResponseError) as err:
+    with pytest.raises(ParameterVerificationFailedError):
         client.get_insight(device_id=1234567890123456789, start_date=now, period_type=1)
-    assert str(err.getrepr(style="value")) == "API call failed: 20404 Parameter verification failed"
-
     data = client.get_insight(device_id=1234567890123456789, start_date=now, period_type=0)
     assert len(data["deviceRealtimeDto"]["solarPowerDps"]) > 1
 
 
-# TODO test wrong login payload
 # TODO test 404
-# TODO test all call not authorized
 # TODO test bad method (ex GET in place of POST)

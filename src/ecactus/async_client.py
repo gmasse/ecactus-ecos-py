@@ -8,7 +8,16 @@ from typing import Any
 import aiohttp
 
 from .base import JSON, _BaseEcos
-from .exceptions import ApiResponseError, HttpError, InvalidJsonError
+from .exceptions import (
+    ApiResponseError,
+    AuthenticationError,
+    HomeDoesNotExistError,
+    HttpError,
+    InvalidJsonError,
+    ParameterVerificationFailedError,
+    UnauthorizedDeviceError,
+    UnauthorizedError,
+)
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -25,15 +34,17 @@ class AsyncEcos(_BaseEcos):
         """Make a GET request to the ECOS API.
 
         Args:
-            api_path (str): The path of the API endpoint.
-            payload (dict): The data to be sent with the request.
+            api_path: The path of the API endpoint.
+            payload: The data to be sent with the request.
 
         Returns:
             JSON: The data returned by the API.
 
         Raises:
-            requests.exceptions.HTTPError: If the API returns an HTTP error.
-            ValueError: If the API returns a non-successful response.
+            UnauthorizedError: If the Authorization token is not valid.
+            ApiResponseError: If the API returns a non-successful response.
+            HttpError: For HTTP error not related to API.
+            InvalidJsonError: If the API returns an invalid JSON.
 
         """
         api_path = api_path.lstrip("/")  # remove / from beginning of api_path
@@ -53,6 +64,10 @@ class AsyncEcos(_BaseEcos):
             else:
                 if response.status != 200:
                     error_msg = body.get("message", await response.text()) # return message from JSON if avalaible, or HTTP response text
+                    if body["code"] == 401:
+                        raise UnauthorizedError(error_msg)
+                    if body["code"] is not None:
+                        raise ApiResponseError(body["code"], error_msg)
                     raise HttpError(response.status, error_msg)
                 if not body["success"]:
                     logger.debug(body)
@@ -63,15 +78,17 @@ class AsyncEcos(_BaseEcos):
         """Make a POST request to the ECOS API.
 
         Args:
-            api_path (str): The path of the API endpoint.
-            payload (JSON): The data to be sent with the request.
+            api_path: The path of the API endpoint.
+            payload: The data to be sent with the request.
 
         Returns:
             JSON: The data returned by the API.
 
         Raises:
-            requests.exceptions.HTTPError: If the API returns an HTTP error.
-            ValueError: If the API returns a non-successful response.
+            UnauthorizedError: If the Authorization token is not valid.
+            ApiResponseError: If the API returns a non-successful response.
+            HttpError: For HTTP error not related to API.
+            InvalidJsonError: If the API returns an invalid JSON.
 
         """
         api_path = api_path.lstrip("/")  # remove / from beginning of api_path
@@ -91,6 +108,10 @@ class AsyncEcos(_BaseEcos):
             else:
                 if response.status != 200:
                     error_msg = body.get("message", await response.text()) # return message from JSON if avalaible, or HTTP response text
+                    if body["code"] == 401:
+                        raise UnauthorizedError(error_msg)
+                    if body["code"] is not None:
+                        raise ApiResponseError(body["code"], error_msg)
                     raise HttpError(response.status, error_msg)
                 if not body["success"]:
                     logger.debug(body)
@@ -101,8 +122,12 @@ class AsyncEcos(_BaseEcos):
         """Authenticate with the ECOS API using a provided email and password.
 
         Args:
-            email (str): The user's email to use for authentication.
-            password (str): The user's password to use for authentication.
+            email: The user's email to use for authentication.
+            password: The user's password to use for authentication.
+
+        Raises:
+            AuthenticationError: If the Authorization token is not valid.
+            ApiResponseError: If the API returns a non-successful response.
 
         """
         logger.info("Login")
@@ -113,7 +138,11 @@ class AsyncEcos(_BaseEcos):
             "email": email,
             "password": password,
         }
-        data = await self._post("/api/client/guide/login", payload=payload)
+        try:
+            data = await self._post("/api/client/guide/login", payload=payload)
+        except ApiResponseError as err:
+            if err.code == 20414:
+                raise AuthenticationError from err
         self.access_token = data["accessToken"]
         self.refresh_token = data["refreshToken"]
 
@@ -137,9 +166,14 @@ class AsyncEcos(_BaseEcos):
                 }
                 ```
 
+        Raises:
+            UnauthorizedError: If the Authorization token is not valid.
+            ApiResponseError: If the API returns a non-successful response.
+
         """
         logger.info("Get user info")
         return await self._get("/api/client/settings/user/info")
+
 
     async def get_homes(self) -> JSON:
         """Get a list of homes.
@@ -173,6 +207,10 @@ class AsyncEcos(_BaseEcos):
                 ]
                 ```
 
+        Raises:
+            UnauthorizedError: If the Authorization token is not valid.
+            ApiResponseError: If the API returns a non-successful response.
+
         """
         logger.info("Get home list")
         home_list: list[Any] = await self._get("/api/client/v2/home/family/query")
@@ -187,7 +225,7 @@ class AsyncEcos(_BaseEcos):
         """Get a list of devices for a home.
 
         Args:
-            home_id (str): The home ID to get devices for.
+            home_id: The home ID to get devices for.
 
         Returns:
             A list of devices. Example:
@@ -217,11 +255,20 @@ class AsyncEcos(_BaseEcos):
                 ]
                 ```
 
+        Raises:
+            HomeDoesNotExistError: If the home id is not correct.
+            UnauthorizedError: If the Authorization token is not valid.
+            ApiResponseError: If the API returns a non-successful response.
+
         """
         logger.info("Get devices for home %s", home_id)
-        return await self._get(
-            "/api/client/v2/home/device/query", payload={"homeId": home_id}
-        )
+        try:
+            return await self._get(
+                "/api/client/v2/home/device/query", payload={"homeId": home_id}
+            )
+        except ApiResponseError as err:
+            if err.code == 20450:
+                raise HomeDoesNotExistError(home_id) from err
 
     async def get_all_devices(self) -> JSON:
         """Get a list of all the devices.
@@ -252,15 +299,20 @@ class AsyncEcos(_BaseEcos):
                 ]
                 ```
 
+        Raises:
+            UnauthorizedError: If the Authorization token is not valid.
+            ApiResponseError: If the API returns a non-successful response.
+
         """
         logger.info("Get devices for every homes")
         return await self._get("/api/client/home/device/list")
+
 
     async def get_today_device_data(self, device_id: str) -> JSON:
         """Get power metrics of the current day until now.
 
         Args:
-            device_id (str): The device ID to get power metrics for.
+            device_id: The device ID to get power metrics for.
 
         Returns:
             Multiple metrics of the current day. Example:
@@ -280,17 +332,26 @@ class AsyncEcos(_BaseEcos):
                 }
                 ```
 
+        Raises:
+            UnauthorizedDeviceError: If the device is not authorized or unknown.
+            UnauthorizedError: If the Authorization token is not valid.
+            ApiResponseError: If the API returns a non-successful response.
+
         """
         logger.info("Get current day data for device %s", device_id)
-        return await self._post(
-            "/api/client/home/now/device/realtime", payload={"deviceId": device_id}
-        )
+        try:
+            return await self._post(
+                "/api/client/home/now/device/realtime", payload={"deviceId": device_id}
+            )
+        except ApiResponseError as err:
+            if err.code == 20424:
+                raise UnauthorizedDeviceError(device_id) from err
 
     async def get_realtime_home_data(self, home_id: str) -> JSON:
         """Get current power for the home.
 
         Args:
-            home_id (str): The home ID to get current power for.
+            home_id: The home ID to get current power for.
 
         Returns:
             Power data. Example:
@@ -315,17 +376,26 @@ class AsyncEcos(_BaseEcos):
                 }
                 ```
 
+        Raises:
+            HomeDoesNotExistError: If the home id is not correct.
+            UnauthorizedError: If the Authorization token is not valid.
+            ApiResponseError: If the API returns a non-successful response.
+
         """
         logger.info("Get realtime data for home %s", home_id)
-        return await self._get(
-            "/api/client/v2/home/device/runData", payload={"homeId": home_id}
-        )
+        try:
+            return await self._get(
+                "/api/client/v2/home/device/runData", payload={"homeId": home_id}
+            )
+        except ApiResponseError as err:
+            if err.code == 20450:
+                raise HomeDoesNotExistError(home_id) from err
 
     async def get_realtime_device_data(self, device_id: str) -> JSON:
         """Get current power for a device.
 
         Args:
-            device_id (str): The device ID to get current power for.
+            device_id: The device ID to get current power for.
 
         Returns:
             Power data. Example (without solar production):
@@ -359,12 +429,20 @@ class AsyncEcos(_BaseEcos):
                 # Home -> Grid 650
                 # gridPower (could be related to operating mode with % reserved SOC for grid connection)
                 ```
+        Raises:
+            UnauthorizedDeviceError: If the device is not authorized or unknown.
+            UnauthorizedError: If the Authorization token is not valid.
+            ApiResponseError: If the API returns a non-successful response.
 
         """
         logger.info("Get realtime data for device %s", device_id)
-        return await self._post(
-            "/api/client/home/now/device/runData", payload={"deviceId": device_id}
-        )
+        try:
+            return await self._post(
+                "/api/client/home/now/device/runData", payload={"deviceId": device_id}
+            )
+        except ApiResponseError as err:
+            if err.code == 20424:
+                raise UnauthorizedDeviceError(device_id) from err
 
     async def get_history(
         self, device_id: str, start_date: datetime, period_type: int
@@ -372,9 +450,9 @@ class AsyncEcos(_BaseEcos):
         """Get aggregated energy for a period.
 
         Args:
-            device_id (str): The device ID to get history for.
-            start_date (datetime): The start date.
-            period_type (int): Possible value:
+            device_id: The device ID to get history for.
+            start_date: The start date.
+            period_type: Possible value:
 
                 - `0`: daily values of the calendar month corresponding to `start_date`
                 - `1`: today daily values (`start_date` is ignored) (?)
@@ -398,17 +476,29 @@ class AsyncEcos(_BaseEcos):
                 }
                 ```
 
+        Raises:
+            UnauthorizedDeviceError: If the device is not authorized or unknown.
+            ParameterVerificationFailedError: If a parameter is not valid (`period_type` number for example)
+            UnauthorizedError: If the Authorization token is not valid.
+            ApiResponseError: If the API returns a non-successful response.
+
         """
         logger.info("Get history for device %s", device_id)
         start_ts = int(start_date.timestamp())
-        return await self._post(
-            "/api/client/home/history/home",
-            payload={
-                "deviceId": device_id,
-                "timestamp": start_ts,
-                "periodType": period_type,
-            },
-        )
+        try:
+            return await self._post(
+                "/api/client/home/history/home",
+                payload={
+                    "deviceId": device_id,
+                    "timestamp": start_ts,
+                    "periodType": period_type,
+                },
+            )
+        except ApiResponseError as err:
+            if err.code == 20424:
+                raise UnauthorizedDeviceError(device_id) from err
+            if err.code == 20404:
+                raise ParameterVerificationFailedError from err
 
     async def get_insight(
         self, device_id: str, start_date: datetime, period_type: int
@@ -416,9 +506,9 @@ class AsyncEcos(_BaseEcos):
         """Get energy metrics and statistics of a device for a period.
 
         Args:
-            device_id (str): The device ID to get data for.
-            start_date (datetime): The start date.
-            period_type (int): Possible value:
+            device_id: The device ID to get data for.
+            start_date: The start date.
+            period_type: Possible value:
 
                 - `0`: 5-minute power measurement for the calendar day corresponding to `start_date` (`insightConsumptionDataDto` is `None`)
                 - `1`: (not implemented)
@@ -472,14 +562,26 @@ class AsyncEcos(_BaseEcos):
                 }
                 ```
 
+        Raises:
+            UnauthorizedDeviceError: If the device is not authorized or unknown.
+            ParameterVerificationFailedError: If a parameter is not valid (`period_type` number for example)
+            UnauthorizedError: If the Authorization token is not valid.
+            ApiResponseError: If the API returns a non-successful response.
+
         """
         logger.info("Get insight for device %s", device_id)
         start_ts = int(start_date.timestamp() * 1000)  # timestamp in milliseconds
-        return await self._post(
-            "/api/client/v2/device/three/device/insight",
-            payload={
-                "deviceId": device_id,
-                "timestamp": start_ts,
-                "periodType": period_type,
-            },
-        )
+        try:
+            return await self._post(
+                "/api/client/v2/device/three/device/insight",
+                payload={
+                    "deviceId": device_id,
+                    "timestamp": start_ts,
+                    "periodType": period_type,
+                },
+            )
+        except ApiResponseError as err:
+            if err.code == 20424:
+                raise UnauthorizedDeviceError(device_id) from err
+            if err.code == 20404:
+                raise ParameterVerificationFailedError from err

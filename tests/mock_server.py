@@ -390,7 +390,7 @@ class EcosMockServer:
             )
         if request_payload.get("periodType") not in (0, 1, 2, 3, 4):
             return EcosMockServer._ok_response(
-                code=20424, message="Parameter verification failed", success=False
+                code=20404, message="Parameter verification failed", success=False
             )
         # TODO other period time
         if request_payload.get("periodType") != 4:

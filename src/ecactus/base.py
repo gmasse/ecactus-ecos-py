@@ -3,6 +3,8 @@
 import logging
 from typing import Any
 
+from .exceptions import InitializationError
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
@@ -30,7 +32,7 @@ class _BaseEcos:
             refresh_token (Optional[str]): The refresh token for authentication with the ECOS API.
 
         Raises:
-            ValueError: If `datacenter` is not one of `CN`, `EU`, or `AU` and `url` is not provided.
+            InitializationError: If `datacenter` is not one of `CN`, `EU`, or `AU` and `url` is not provided.
 
         """
         logger.info("Initializing session")
@@ -44,9 +46,9 @@ class _BaseEcos:
         }
         if url is None:
             if datacenter is None:
-                raise ValueError("url or datacenter not specified")
+                raise InitializationError("url or datacenter not specified")
             if datacenter not in datacenters:
-                raise ValueError(
+                raise InitializationError(
                     "datacenter must be one of {}".format(", ".join(datacenters.keys()))
                 )
             self.url = datacenters[datacenter]
