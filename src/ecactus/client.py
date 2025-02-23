@@ -1,27 +1,21 @@
-"""Implementation of a class for interacting with the ECOS API."""
+"""Implementation of a synchronous class for interacting with the ECOS API."""
 
 from datetime import datetime
 import logging
 import time
 from typing import Any
 
-import requests
-
 from .base import JSON, _BaseEcos
 from .exceptions import (
     ApiResponseError,
     AuthenticationError,
     HomeDoesNotExistError,
-    HttpError,
-    InvalidJsonError,
     ParameterVerificationFailedError,
     UnauthorizedDeviceError,
-    UnauthorizedError,
 )
 
 # Configure logging
 logger = logging.getLogger(__name__)
-
 
 class Ecos(_BaseEcos):
     """Synchronous ECOS API client class.
@@ -30,92 +24,6 @@ class Ecos(_BaseEcos):
     authentication, retrieving user information, and managing homes. It uses
     the `requests` library to make HTTP requests to the API.
     """
-
-    def _get(self, api_path: str, payload: dict[str, Any] = {}) -> JSON:
-        """Make a GET request to the ECOS API.
-
-        Args:
-            api_path: The path of the API endpoint.
-            payload: The data to be sent with the request.
-
-        Returns:
-            JSON: The data returned by the API.
-
-        Raises:
-            UnauthorizedError: If the Authorization token is not valid.
-            ApiResponseError: If the API returns a non-successful response.
-            HttpError: For HTTP error not related to API.
-            InvalidJsonError: If the API returns an invalid JSON.
-
-        """
-        api_path = api_path.lstrip("/")  # remove / from beginning of api_path
-        full_url = self.url + "/" + api_path
-        logger.info("API GET call: %s", full_url)
-        try:
-            response = requests.get(
-                full_url, params=payload, headers={"Authorization": self.access_token}
-            )
-            logger.debug(response.text)
-            body = response.json()
-        except requests.exceptions.JSONDecodeError as err:
-            if response.status_code != 200:
-                raise HttpError(response.status_code, response.text) from err
-            raise InvalidJsonError from err
-        else:
-            if not response.ok:
-                error_msg = body.get("message", response.text) # return message from JSON if avalaible, or HTTP response text
-                if body["code"] == 401:
-                    raise UnauthorizedError(error_msg)
-                if body["code"] is not None:
-                    raise ApiResponseError(body["code"], error_msg)
-                raise HttpError(response.status_code, error_msg)
-            if not body["success"]:
-                logger.debug(body)
-                raise ApiResponseError(body["code"], body["message"])
-        return body["data"]
-
-    def _post(self, api_path: str, payload: JSON = {}) -> JSON:
-        """Make a POST request to the ECOS API.
-
-        Args:
-            api_path: The path of the API endpoint.
-            payload: The data to be sent with the request.
-
-        Returns:
-            JSON: The data returned by the API.
-
-        Raises:
-            UnauthorizedError: If the Authorization token is not valid.
-            ApiResponseError: If the API returns a non-successful response.
-            HttpError: For HTTP error not related to API.
-            InvalidJsonError: If the API returns an invalid JSON.
-
-        """
-        api_path = api_path.lstrip("/")  # remove / from beginning of api_path
-        full_url = self.url + "/" + api_path
-        logger.info("API POST call: %s", full_url)
-        try:
-            response = requests.post(
-                full_url, json=payload, headers={"Authorization": self.access_token}
-            )
-            logger.debug(response.text)
-            body = response.json()
-        except requests.exceptions.JSONDecodeError as err:
-            if response.status_code != 200:
-                raise HttpError(response.status_code, response.text) from err
-            raise InvalidJsonError from err
-        else:
-            if not response.ok:
-                error_msg = body.get("message", response.text) # return message from JSON if avalaible, or HTTP response text
-                if body["code"] == 401:
-                    raise UnauthorizedError(error_msg)
-                if body["code"] is not None:
-                    raise ApiResponseError(body["code"], error_msg)
-                raise HttpError(response.status_code, error_msg)
-            if not body["success"]:
-                logger.debug(body)
-                raise ApiResponseError(body["code"], body["message"])
-        return body["data"]
 
     def login(self, email: str, password: str) -> None:
         """Authenticate with the ECOS API using a provided email and password.
@@ -172,7 +80,6 @@ class Ecos(_BaseEcos):
         """
         logger.info("Get user info")
         return self._get("/api/client/settings/user/info")
-
 
     def get_homes(self) -> JSON:
         """Get a list of homes.
@@ -305,7 +212,6 @@ class Ecos(_BaseEcos):
         """
         logger.info("Get devices for every homes")
         return self._get("/api/client/home/device/list")
-
 
     def get_today_device_data(self, device_id: str) -> JSON:
         """Get power metrics of the current day until now.

@@ -5,18 +5,13 @@ import logging
 import time
 from typing import Any
 
-import aiohttp
-
 from .base import JSON, _BaseEcos
 from .exceptions import (
     ApiResponseError,
     AuthenticationError,
     HomeDoesNotExistError,
-    HttpError,
-    InvalidJsonError,
     ParameterVerificationFailedError,
     UnauthorizedDeviceError,
-    UnauthorizedError,
 )
 
 # Configure logging
@@ -27,96 +22,8 @@ class AsyncEcos(_BaseEcos):
 
     This class provides methods for interacting with the ECOS API, including
     authentication, retrieving user information, and managing homes. It uses
-    the `aiohttp` library to make asynchonous HTTP requests to the API.
+    the `aiohttp` library to make asynchronous HTTP requests to the API.
     """
-
-    async def _get(self, api_path: str, payload: dict[str, Any] = {}) -> JSON:
-        """Make a GET request to the ECOS API.
-
-        Args:
-            api_path: The path of the API endpoint.
-            payload: The data to be sent with the request.
-
-        Returns:
-            JSON: The data returned by the API.
-
-        Raises:
-            UnauthorizedError: If the Authorization token is not valid.
-            ApiResponseError: If the API returns a non-successful response.
-            HttpError: For HTTP error not related to API.
-            InvalidJsonError: If the API returns an invalid JSON.
-
-        """
-        api_path = api_path.lstrip("/")  # remove / from beginning of api_path
-        full_url = self.url + "/" + api_path
-        logger.info("API GET call: %s", full_url)
-
-        headers = {"Authorization": self.access_token} if self.access_token is not None else None
-        async with aiohttp.ClientSession() as session:
-            try:
-                async with session.get(full_url, params=payload, headers=headers) as response:
-                    logger.debug(await response.text())
-                    body = await response.json()
-            except aiohttp.ContentTypeError as err:
-                if response.status != 200:
-                    raise HttpError(response.status, await response.text()) from err
-                raise InvalidJsonError from err
-            else:
-                if response.status != 200:
-                    error_msg = body.get("message", await response.text()) # return message from JSON if avalaible, or HTTP response text
-                    if body["code"] == 401:
-                        raise UnauthorizedError(error_msg)
-                    if body["code"] is not None:
-                        raise ApiResponseError(body["code"], error_msg)
-                    raise HttpError(response.status, error_msg)
-                if not body["success"]:
-                    logger.debug(body)
-                    raise ApiResponseError(body["code"], body["message"])
-        return body["data"]
-
-    async def _post(self, api_path: str, payload: JSON = {}) -> JSON:
-        """Make a POST request to the ECOS API.
-
-        Args:
-            api_path: The path of the API endpoint.
-            payload: The data to be sent with the request.
-
-        Returns:
-            JSON: The data returned by the API.
-
-        Raises:
-            UnauthorizedError: If the Authorization token is not valid.
-            ApiResponseError: If the API returns a non-successful response.
-            HttpError: For HTTP error not related to API.
-            InvalidJsonError: If the API returns an invalid JSON.
-
-        """
-        api_path = api_path.lstrip("/")  # remove / from beginning of api_path
-        full_url = self.url + "/" + api_path
-        logger.info("API POST call: %s", full_url)
-
-        headers = {"Authorization": self.access_token} if self.access_token is not None else None
-        async with aiohttp.ClientSession() as session:
-            try:
-                async with session.post(full_url, json=payload, headers=headers) as response:
-                    logger.debug(await response.text())
-                    body = await response.json()
-            except aiohttp.ContentTypeError as err:
-                if response.status != 200:
-                    raise HttpError(response.status, await response.text()) from err
-                raise InvalidJsonError from err
-            else:
-                if response.status != 200:
-                    error_msg = body.get("message", await response.text()) # return message from JSON if avalaible, or HTTP response text
-                    if body["code"] == 401:
-                        raise UnauthorizedError(error_msg)
-                    if body["code"] is not None:
-                        raise ApiResponseError(body["code"], error_msg)
-                    raise HttpError(response.status, error_msg)
-                if not body["success"]:
-                    logger.debug(body)
-                    raise ApiResponseError(body["code"], body["message"])
-        return body["data"]
 
     async def login(self, email: str, password: str) -> None:
         """Authenticate with the ECOS API using a provided email and password.
@@ -139,7 +46,7 @@ class AsyncEcos(_BaseEcos):
             "password": password,
         }
         try:
-            data = await self._post("/api/client/guide/login", payload=payload)
+            data = await self._async_post("/api/client/guide/login", payload=payload)
         except ApiResponseError as err:
             if err.code == 20414:
                 raise AuthenticationError from err
@@ -172,8 +79,7 @@ class AsyncEcos(_BaseEcos):
 
         """
         logger.info("Get user info")
-        return await self._get("/api/client/settings/user/info")
-
+        return await self._async_get("/api/client/settings/user/info")
 
     async def get_homes(self) -> JSON:
         """Get a list of homes.
@@ -213,7 +119,7 @@ class AsyncEcos(_BaseEcos):
 
         """
         logger.info("Get home list")
-        home_list: list[Any] = await self._get("/api/client/v2/home/family/query")
+        home_list: list[Any] = await self._async_get("/api/client/v2/home/family/query")
         for (
             home
         ) in home_list:  # force the name of the home for shared devices (homeType=0)
@@ -263,7 +169,7 @@ class AsyncEcos(_BaseEcos):
         """
         logger.info("Get devices for home %s", home_id)
         try:
-            return await self._get(
+            return await self._async_get(
                 "/api/client/v2/home/device/query", payload={"homeId": home_id}
             )
         except ApiResponseError as err:
@@ -305,8 +211,7 @@ class AsyncEcos(_BaseEcos):
 
         """
         logger.info("Get devices for every homes")
-        return await self._get("/api/client/home/device/list")
-
+        return await self._async_get("/api/client/home/device/list")
 
     async def get_today_device_data(self, device_id: str) -> JSON:
         """Get power metrics of the current day until now.
@@ -340,7 +245,7 @@ class AsyncEcos(_BaseEcos):
         """
         logger.info("Get current day data for device %s", device_id)
         try:
-            return await self._post(
+            return await self._async_post(
                 "/api/client/home/now/device/realtime", payload={"deviceId": device_id}
             )
         except ApiResponseError as err:
@@ -384,7 +289,7 @@ class AsyncEcos(_BaseEcos):
         """
         logger.info("Get realtime data for home %s", home_id)
         try:
-            return await self._get(
+            return await self._async_get(
                 "/api/client/v2/home/device/runData", payload={"homeId": home_id}
             )
         except ApiResponseError as err:
@@ -429,6 +334,7 @@ class AsyncEcos(_BaseEcos):
                 # Home -> Grid 650
                 # gridPower (could be related to operating mode with % reserved SOC for grid connection)
                 ```
+
         Raises:
             UnauthorizedDeviceError: If the device is not authorized or unknown.
             UnauthorizedError: If the Authorization token is not valid.
@@ -437,7 +343,7 @@ class AsyncEcos(_BaseEcos):
         """
         logger.info("Get realtime data for device %s", device_id)
         try:
-            return await self._post(
+            return await self._async_post(
                 "/api/client/home/now/device/runData", payload={"deviceId": device_id}
             )
         except ApiResponseError as err:
@@ -486,7 +392,7 @@ class AsyncEcos(_BaseEcos):
         logger.info("Get history for device %s", device_id)
         start_ts = int(start_date.timestamp())
         try:
-            return await self._post(
+            return await self._async_post(
                 "/api/client/home/history/home",
                 payload={
                     "deviceId": device_id,
@@ -572,7 +478,7 @@ class AsyncEcos(_BaseEcos):
         logger.info("Get insight for device %s", device_id)
         start_ts = int(start_date.timestamp() * 1000)  # timestamp in milliseconds
         try:
-            return await self._post(
+            return await self._async_post(
                 "/api/client/v2/device/three/device/insight",
                 payload={
                     "deviceId": device_id,
