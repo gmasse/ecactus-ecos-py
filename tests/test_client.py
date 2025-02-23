@@ -1,11 +1,8 @@
 """Unit tests for synchronous Ecos class."""
 
-import asyncio
 from datetime import datetime
 import logging
-import threading
 
-from aiohttp import web
 import pytest
 
 import ecactus
@@ -18,49 +15,11 @@ from ecactus.exceptions import (
     UnauthorizedError,
 )
 
-from .mock_server import EcosMockServer  # noqa: TID251
+from .conftest import LOGIN, PASSWORD  # noqa: TID251
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
 )
-
-LOGIN = "test@test.com"
-PASSWORD = "password"
-
-
-def run_server(runner, host="127.0.0.1", port=8080):
-    """Run the server."""
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(runner.setup())
-    site = web.TCPSite(runner, host, port)
-    loop.run_until_complete(site.start())
-    loop.run_forever()
-
-
-@pytest.fixture(autouse=True, scope="session")
-def mock_server():
-    """Start a mock server in a thread and return it."""
-    localhost = "127.0.0.1"
-    # Find an unused localhost port from 1024-65535 and return it.
-    import contextlib
-    import socket
-
-    with contextlib.closing(socket.socket(type=socket.SOCK_STREAM)) as sock:
-        sock.bind((localhost, 0))
-        unused_tcp_port = sock.getsockname()[1]
-    server = EcosMockServer(
-        host=localhost, port=unused_tcp_port, login=LOGIN, password=PASSWORD
-    )
-    server.setup_routes()
-    runner = web.AppRunner(server.app)
-    thread = threading.Thread(
-        target=run_server, args=(runner, server.host, server.port)
-    )
-    thread.daemon = True  # daeamon thread will be killed when main thread ends
-    thread.start()
-    server.url = f"http://{server.host}:{server.port}"
-    return server
 
 
 @pytest.fixture(scope="session")
@@ -96,7 +55,6 @@ def test_login(mock_server, client):
 
 def test_get_user_info(client, bad_client):
     """Test get user info."""
-    #caplog.set_level(logging.DEBUG)
     with pytest.raises(UnauthorizedError):
         bad_client.get_user_info()
     user_info = client.get_user_info()
@@ -159,7 +117,7 @@ def test_get_realtime_home_data(client, bad_client):
     assert data.get("homePower") is not None
 
 
-async def test_get_history(client, bad_client):
+def test_get_history(client, bad_client):
     """Test get history."""
     now = datetime.now()
     with pytest.raises(UnauthorizedError):
@@ -174,7 +132,7 @@ async def test_get_history(client, bad_client):
     #TODO other period types
 
 
-async def test_get_insight(client, bad_client):
+def test_get_insight(client, bad_client):
     """Test get insight."""
     now = datetime.now()
     with pytest.raises(UnauthorizedError):

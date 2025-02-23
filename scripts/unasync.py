@@ -12,10 +12,13 @@ SUBSTITUTIONS = [
     ("async def ", "def "),
     ("await self._async_post", "self._post"),
     ("await self._async_get", "self._get"),
+    ('await ', ''),
     ("class AsyncEcos", "class Ecos"),
+    ("ecactus.AsyncEcos", "ecactus.Ecos"),
     ("Implementation of an asynchronous class", "Implementation of a synchronous class"),
     ("Asynchronous ECOS API", "Synchronous ECOS API"),
     ("the `aiohttp` library to make asynchronous HTTP", "the `requests` library to make HTTP"),
+    ("asynchronous Ecos class", "synchronous Ecos class"),
 ]
 
 COMPILED_SUBSTITUTIONS = [
@@ -36,7 +39,7 @@ def unasync_line(line):
     return line
 
 
-def unasync_file(in_path, out_path):
+def unasync_file_write(in_path, out_path):
     """Apply substitutions to a file."""
     with open(in_path) as in_file, open(out_path, "w", newline="") as out_file: # noqa: PTH123
         for line in in_file:
@@ -57,11 +60,19 @@ def unasync_file_check(in_path, out_path):
                 sys.exit(1)
 
 
-def main(): # noqa: D103
-    if '--check' in sys.argv:
-        unasync_file_check("src/ecactus/async_client.py", "src/ecactus/client.py")
+def unasync_file(in_path, out_path, check_only=True):
+    """Apply or check substitutions to a file."""
+    if check_only:
+         unasync_file_check(in_path, out_path)
     else:
-        unasync_file("src/ecactus/async_client.py", "src/ecactus/client.py")
+        unasync_file_write(in_path, out_path)
+
+
+def main(): # noqa: D103
+    check_only = '--check' in sys.argv
+
+    unasync_file("src/ecactus/async_client.py", "src/ecactus/client.py", check_only)
+    unasync_file("tests/test_async_client.py", "tests/test_client.py", check_only)
 
     if len(USED_SUBSTITUTIONS) != len(SUBSTITUTIONS):
         unused_subs = [SUBSTITUTIONS[i] for i in range(len(SUBSTITUTIONS)) if i not in USED_SUBSTITUTIONS]
