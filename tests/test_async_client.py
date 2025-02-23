@@ -9,6 +9,7 @@ import ecactus
 from ecactus.exceptions import (
     AuthenticationError,
     HomeDoesNotExistError,
+    InitializationError,
     ParameterVerificationFailedError,
     UnauthorizedDeviceError,
     UnauthorizedError,
@@ -53,6 +54,16 @@ async def async_client(mock_server):
 def bad_client(mock_server):
     """Return an ECOS client with wrong authentication token."""
     return ecactus.AsyncEcos(url=mock_server.url, access_token="wrong_token")
+
+
+def test_client():
+    """Test ECOS client."""
+    with pytest.raises(InitializationError):
+        ecactus.AsyncEcos()
+    with pytest.raises(InitializationError):
+        ecactus.AsyncEcos(datacenter='XX')
+    client = ecactus.AsyncEcos(datacenter='EU')
+    assert 'weiheng-tech.com' in client.url
 
 
 async def test_login(mock_server, async_client):
