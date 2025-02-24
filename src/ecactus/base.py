@@ -22,6 +22,9 @@ class _BaseEcos:
 
     def __init__(
         self,
+        email: str | None = None,
+        password: str | None = None,
+        country: str | None = None,
         datacenter: str | None = None,
         url: str | None = None,
         access_token: str | None = None,
@@ -30,18 +33,23 @@ class _BaseEcos:
         """Initialize a session with ECOS API.
 
         Args:
-            datacenter (Optional[str]): The location of the ECOS API datacenter.
-                Can be one of `CN`, `EU`, or `AU`. If not specified and `url` is not provided,
-                a `ValueError` is raised.
-            url (Optional[str]): The URL of the ECOS API. If specified, `datacenter` is ignored.
-            access_token (Optional[str]): The access token for authentication with the ECOS API.
-            refresh_token (Optional[str]): The refresh token for authentication with the ECOS API.
+            email: The user's email to use for authentication.
+            password: The user's password to use for authentication.
+            country: _Reserved for future_.
+            datacenter: The location of the ECOS API datacenter.
+                Can be one of `CN`, `EU`, or `AU`.
+            url: The URL of the ECOS API. If specified, `datacenter` is ignored.
+            access_token: The access token for authentication with the ECOS API.
+            refresh_token: The refresh token for authentication with the ECOS API.
 
         Raises:
             InitializationError: If `datacenter` is not one of `CN`, `EU`, or `AU` and `url` is not provided.
 
         """
         logger.info("Initializing session")
+        self.email = email
+        self.password = password
+        self.country = country
         self.access_token = access_token
         self.refresh_token = refresh_token
         # TODO: get datacenters from https://dcdn-config.weiheng-tech.com/prod/config.json
@@ -95,7 +103,9 @@ class _BaseEcos:
             raise InvalidJsonError from err
         else:
             if not response.ok:
-                error_msg = body.get("message", response.text) # return message from JSON if avalaible, or HTTP response text
+                error_msg = body.get(
+                    "message", response.text
+                )  # return message from JSON if avalaible, or HTTP response text
                 if body["code"] == 401:
                     raise UnauthorizedError(error_msg)
                 if body["code"] is not None:
@@ -140,7 +150,9 @@ class _BaseEcos:
             raise InvalidJsonError from err
         else:
             if not response.ok:
-                error_msg = body.get("message", response.text) # return message from JSON if avalaible, or HTTP response text
+                error_msg = body.get(
+                    "message", response.text
+                )  # return message from JSON if avalaible, or HTTP response text
                 if body["code"] == 401:
                     raise UnauthorizedError(error_msg)
                 if body["code"] is not None:
@@ -174,10 +186,16 @@ class _BaseEcos:
         full_url = self.url + "/" + api_path
         logger.info("API GET call: %s", full_url)
 
-        headers = {"Authorization": self.access_token} if self.access_token is not None else None
+        headers = (
+            {"Authorization": self.access_token}
+            if self.access_token is not None
+            else None
+        )
         async with aiohttp.ClientSession() as session:
             try:
-                async with session.get(full_url, params=payload, headers=headers) as response:
+                async with session.get(
+                    full_url, params=payload, headers=headers
+                ) as response:
                     logger.debug(await response.text())
                     body = await response.json()
             except aiohttp.ContentTypeError as err:
@@ -186,7 +204,9 @@ class _BaseEcos:
                 raise InvalidJsonError from err
             else:
                 if response.status != 200:
-                    error_msg = body.get("message", await response.text()) # return message from JSON if avalaible, or HTTP response text
+                    error_msg = body.get(
+                        "message", await response.text()
+                    )  # return message from JSON if avalaible, or HTTP response text
                     if body["code"] == 401:
                         raise UnauthorizedError(error_msg)
                     if body["code"] is not None:
@@ -220,10 +240,16 @@ class _BaseEcos:
         full_url = self.url + "/" + api_path
         logger.info("API POST call: %s", full_url)
 
-        headers = {"Authorization": self.access_token} if self.access_token is not None else None
+        headers = (
+            {"Authorization": self.access_token}
+            if self.access_token is not None
+            else None
+        )
         async with aiohttp.ClientSession() as session:
             try:
-                async with session.post(full_url, json=payload, headers=headers) as response:
+                async with session.post(
+                    full_url, json=payload, headers=headers
+                ) as response:
                     logger.debug(await response.text())
                     body = await response.json()
             except aiohttp.ContentTypeError as err:
@@ -232,7 +258,9 @@ class _BaseEcos:
                 raise InvalidJsonError from err
             else:
                 if response.status != 200:
-                    error_msg = body.get("message", await response.text()) # return message from JSON if avalaible, or HTTP response text
+                    error_msg = body.get(
+                        "message", await response.text()
+                    )  # return message from JSON if avalaible, or HTTP response text
                     if body["code"] == 401:
                         raise UnauthorizedError(error_msg)
                     if body["code"] is not None:

@@ -53,12 +53,12 @@ async def test_login(mock_server, client):
     assert client.refresh_token == mock_server.refresh_token
 
 
-async def test_get_user_info(client, bad_client):
+async def test_get_user(client, bad_client):
     """Test get user info."""
     with pytest.raises(UnauthorizedError):
-        await bad_client.get_user_info()
-    user_info = await client.get_user_info()
-    assert user_info["username"] == LOGIN
+        await bad_client.get_user()
+    user = await client.get_user()
+    assert user.username == LOGIN
 
 
 async def test_get_homes(client, bad_client):
@@ -66,7 +66,7 @@ async def test_get_homes(client, bad_client):
     with pytest.raises(UnauthorizedError):
         await bad_client.get_homes()
     homes = await client.get_homes()
-    assert homes[1]["homeName"] == "My Home"
+    assert homes[1].name == "My Home"
 
 
 async def test_get_devices(client, bad_client):
@@ -76,7 +76,7 @@ async def test_get_devices(client, bad_client):
     with pytest.raises(HomeDoesNotExistError):
         await client.get_devices(home_id=0)
     devices = await client.get_devices(home_id=9876543210987654321)
-    assert devices[0]["deviceAliasName"] == "My Device"
+    assert devices[0].alias == "My Device"
 
 
 async def test_get_all_devices(client, bad_client):
@@ -84,7 +84,7 @@ async def test_get_all_devices(client, bad_client):
     with pytest.raises(UnauthorizedError):
         await bad_client.get_all_devices()
     devices = await client.get_all_devices()
-    assert devices[0]["deviceAliasName"] == "My Device"
+    assert devices[0].alias == "My Device"
 
 
 async def test_get_today_device_data(client, bad_client):

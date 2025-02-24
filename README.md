@@ -14,7 +14,7 @@ This Python client provides both synchronous and asynchronous interfaces to inte
 ```bash
 python -m venv venv
 source venv/bin/activate
-pip install git+https://github.com/gmasse/ecactus-ecos-py.git
+pip install ecactus-ecos-py
 ```
 
 ## Usage
@@ -29,8 +29,8 @@ session = Ecos(datacenter='EU')
 session.login('email@domain.com', 'mypassword')
 
 # Fetch user details
-user_info = session.get_user_info()
-print(user_info)
+user = session.get_user()
+print(user)
 
 # Retrieve all the devices
 devices = session.get_all_devices()
@@ -49,8 +49,8 @@ async def main():
     await session.login('email@domain.com', 'mypassword')
 
     # Fetch user details
-    user_info = await session.get_user_info()
-    print(user_info)
+    user = await session.get_user()
+    print(user)
 
     # Retrieve all the devices
     devices = await session.get_all_devices()

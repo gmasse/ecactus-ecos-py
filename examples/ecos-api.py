@@ -5,8 +5,11 @@ from datetime import datetime
 import getpass
 import logging
 import os
+from pathlib import Path
+import sys
 from zoneinfo import ZoneInfo
 
+sys.path.insert(0, str(Path(__file__).resolve().parent / '../src'))
 from ecactus import Ecos
 
 logging.basicConfig(
@@ -55,15 +58,15 @@ def main() -> None:
         )
         session.login(email, password)
 
-    user_info = session.get_user_info()
-    print(user_info)  # noqa: T201
+    user = session.get_user()
+    print(user)  # noqa: T201
 
     homes = session.get_homes()
     print(homes)  # noqa: T201
 
 
     start_date = datetime(
-        2025, 1, 20, 10, 0, 0, tzinfo=ZoneInfo(user_info["timezoneName"])
+        2025, 1, 20, 10, 0, 0, tzinfo=ZoneInfo(user.timezone_name)
     )
 
     devices = session.get_all_devices()
@@ -73,10 +76,10 @@ def main() -> None:
         #history = session.get_history(int(device["deviceId"]), start_date, 4)
         #print(history)  # noqa: T201
 
-        print(session.get_realtime_device_data(device["deviceId"]))  # noqa: T201
+        print(session.get_realtime_device_data(device.id))  # noqa: T201
 
         insight = session.get_insight(
-            int(device["deviceId"]), start_date, period_type=5
+            int(device.id), start_date, period_type=5
         )
         print(insight)  # noqa: T201
         # for ts, value in insight['deviceRealtimeDto']['solarPowerDps'].items():
