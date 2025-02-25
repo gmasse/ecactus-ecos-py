@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 import sys
 
-sys.path.insert(0, str(Path(__file__).resolve().parent / '../src'))
+sys.path.insert(0, str(Path(__file__).resolve().parent / "../src"))
 from ecactus import AsyncEcos
 
 logging.basicConfig(
@@ -53,7 +53,7 @@ async def main() -> None:
             PASSWORD if PASSWORD is not None else getpass.getpass("Enter password: ")
         )
         session = AsyncEcos(datacenter=DATACENTER, email=email, password=password)
-        #await session.login()
+        # await session.login()
 
     print(session.access_token)  # noqa: T201
     user = await session.get_user()
@@ -68,6 +68,7 @@ async def main() -> None:
             print(devices)  # noqa: T201
 
     print(await session.get_all_devices())  # noqa: T201
+
 
 if __name__ == "__main__":
     asyncio.run(main())

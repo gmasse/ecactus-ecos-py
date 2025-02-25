@@ -284,9 +284,7 @@ class EcosMockServer:
             metrics_data[str(timestamp)] = float(fake_value / 10)
         return metrics_data
 
-    async def handle_get_today_device_data(
-        self, request: web.Request
-    ) -> web.Response:
+    async def handle_get_today_device_data(self, request: web.Request) -> web.Response:
         """Mock get today device data endpoint."""
         if not self._is_authorized_request(request):
             return EcosMockServer._unauthorized_response()
@@ -371,7 +369,7 @@ class EcosMockServer:
                 "solarPower": 0,
                 "sysRunMode": 0,
                 "isExistSolar": True,
-                "sysPowerConfig": 3
+                "sysPowerConfig": 3,
             }
         )
 
@@ -506,7 +504,10 @@ class EcosMockServer:
                     "/api/client/v2/home/device/runData",
                     self.handle_get_realtime_home_data,
                 ),
-                web.post("/api/client/home/now/device/runData", self.handle_get_realtime_device_data),
+                web.post(
+                    "/api/client/home/now/device/runData",
+                    self.handle_get_realtime_device_data,
+                ),
                 web.post("/api/client/home/history/home", self.handle_get_history),
                 web.post(
                     "/api/client/v2/device/three/device/insight",

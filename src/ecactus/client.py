@@ -27,9 +27,7 @@ class Ecos(_BaseEcos):
     the `requests` library to make HTTP requests to the API.
     """
 
-    def login(
-        self, email: str | None = None, password: str | None = None
-    ) -> None:
+    def login(self, email: str | None = None, password: str | None = None) -> None:
         """Authenticate with the ECOS API using a provided email and password.
 
         Args:

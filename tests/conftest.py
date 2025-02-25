@@ -8,6 +8,7 @@ from .mock_server import EcosMockServer  # noqa: TID251
 LOGIN = "test@test.com"
 PASSWORD = "password"
 
+
 def pytest_collection_modifyitems(items) -> None:
     """Run all test in the same event loop.
 

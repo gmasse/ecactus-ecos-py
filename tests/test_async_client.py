@@ -39,9 +39,9 @@ def test_client():
     with pytest.raises(InitializationError):
         ecactus.AsyncEcos()
     with pytest.raises(InitializationError):
-        ecactus.AsyncEcos(datacenter='XX')
-    client = ecactus.AsyncEcos(datacenter='EU')
-    assert 'weiheng-tech.com' in client.url
+        ecactus.AsyncEcos(datacenter="XX")
+    client = ecactus.AsyncEcos(datacenter="EU")
+    assert "weiheng-tech.com" in client.url
 
 
 async def test_login(mock_server, client):
@@ -125,11 +125,15 @@ async def test_get_history(client, bad_client):
     with pytest.raises(UnauthorizedDeviceError):
         await client.get_history(device_id=0, start_date=now, period_type=0)
     with pytest.raises(ParameterVerificationFailedError):
-        await client.get_history(device_id=1234567890123456789, start_date=now, period_type=5)
-    data = await client.get_history(device_id=1234567890123456789, start_date=now, period_type=4)
+        await client.get_history(
+            device_id=1234567890123456789, start_date=now, period_type=5
+        )
+    data = await client.get_history(
+        device_id=1234567890123456789, start_date=now, period_type=4
+    )
     assert len(data["homeEnergyDps"]) == 1
 
-    #TODO other period types
+    # TODO other period types
 
 
 async def test_get_insight(client, bad_client):
@@ -140,8 +144,12 @@ async def test_get_insight(client, bad_client):
     with pytest.raises(UnauthorizedDeviceError):
         await client.get_insight(device_id=0, start_date=now, period_type=0)
     with pytest.raises(ParameterVerificationFailedError):
-        await client.get_insight(device_id=1234567890123456789, start_date=now, period_type=1)
-    data = await client.get_insight(device_id=1234567890123456789, start_date=now, period_type=0)
+        await client.get_insight(
+            device_id=1234567890123456789, start_date=now, period_type=1
+        )
+    data = await client.get_insight(
+        device_id=1234567890123456789, start_date=now, period_type=0
+    )
     assert len(data["deviceRealtimeDto"]["solarPowerDps"]) > 1
 
 

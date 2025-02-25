@@ -39,9 +39,9 @@ def test_client():
     with pytest.raises(InitializationError):
         ecactus.Ecos()
     with pytest.raises(InitializationError):
-        ecactus.Ecos(datacenter='XX')
-    client = ecactus.Ecos(datacenter='EU')
-    assert 'weiheng-tech.com' in client.url
+        ecactus.Ecos(datacenter="XX")
+    client = ecactus.Ecos(datacenter="EU")
+    assert "weiheng-tech.com" in client.url
 
 
 def test_login(mock_server, client):
@@ -126,10 +126,12 @@ def test_get_history(client, bad_client):
         client.get_history(device_id=0, start_date=now, period_type=0)
     with pytest.raises(ParameterVerificationFailedError):
         client.get_history(device_id=1234567890123456789, start_date=now, period_type=5)
-    data = client.get_history(device_id=1234567890123456789, start_date=now, period_type=4)
+    data = client.get_history(
+        device_id=1234567890123456789, start_date=now, period_type=4
+    )
     assert len(data["homeEnergyDps"]) == 1
 
-    #TODO other period types
+    # TODO other period types
 
 
 def test_get_insight(client, bad_client):
@@ -141,7 +143,9 @@ def test_get_insight(client, bad_client):
         client.get_insight(device_id=0, start_date=now, period_type=0)
     with pytest.raises(ParameterVerificationFailedError):
         client.get_insight(device_id=1234567890123456789, start_date=now, period_type=1)
-    data = client.get_insight(device_id=1234567890123456789, start_date=now, period_type=0)
+    data = client.get_insight(
+        device_id=1234567890123456789, start_date=now, period_type=0
+    )
     assert len(data["deviceRealtimeDto"]["solarPowerDps"]) > 1
 
 

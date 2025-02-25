@@ -93,6 +93,7 @@ class ParameterVerificationFailedError(EcosApiError):
         """Initialize the exception with a default error message."""
         super().__init__("Parameter Verification Failed")
 
+
 class InvalidJsonError(EcosApiError):
     """Raised when the API returns invalid JSON."""
 
