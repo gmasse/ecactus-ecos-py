@@ -126,6 +126,7 @@ class AsyncEcos(_BaseEcos):
         except ApiResponseError as err:
             if err.code == 20450:
                 raise HomeDoesNotExistError(home_id) from err
+            raise
 
     async def get_all_devices(self) -> list[Device]:
         """Get a list of all the devices.
@@ -183,6 +184,7 @@ class AsyncEcos(_BaseEcos):
         except ApiResponseError as err:
             if err.code == 20424:
                 raise UnauthorizedDeviceError(device_id) from err
+            raise
 
     async def get_realtime_home_data(self, home_id: str) -> JSON:
         """Get current power for the home.
@@ -227,6 +229,7 @@ class AsyncEcos(_BaseEcos):
         except ApiResponseError as err:
             if err.code == 20450:
                 raise HomeDoesNotExistError(home_id) from err
+            raise
 
     async def get_realtime_device_data(self, device_id: str) -> JSON:
         """Get current power for a device.
@@ -281,6 +284,7 @@ class AsyncEcos(_BaseEcos):
         except ApiResponseError as err:
             if err.code == 20424:
                 raise UnauthorizedDeviceError(device_id) from err
+            raise
 
     async def get_history(
         self, device_id: str, start_date: datetime, period_type: int
@@ -337,6 +341,7 @@ class AsyncEcos(_BaseEcos):
                 raise UnauthorizedDeviceError(device_id) from err
             if err.code == 20404:
                 raise ParameterVerificationFailedError from err
+            raise
 
     async def get_insight(
         self, device_id: str, start_date: datetime, period_type: int
@@ -423,3 +428,4 @@ class AsyncEcos(_BaseEcos):
                 raise UnauthorizedDeviceError(device_id) from err
             if err.code == 20404:
                 raise ParameterVerificationFailedError from err
+            raise
