@@ -89,9 +89,12 @@ class UnauthorizedDeviceError(EcosApiError):
 class ParameterVerificationFailedError(EcosApiError):
     """Raised when a parameter verification fails."""
 
-    def __init__(self) -> None:
+    def __init__(self, message: str | None = None) -> None:
         """Initialize the exception with a default error message."""
-        super().__init__("Parameter Verification Failed")
+        if message is None:
+            super().__init__("Parameter Verification Failed")
+        else:
+            super().__init__(f"Parameter Verification Failed: {message}")
 
 
 class InvalidJsonError(EcosApiError):

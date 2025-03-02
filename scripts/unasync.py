@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# ruff: noqa: T201
+# ruff: noqa: T203
 """Script to generate a synchronous version of the API from the asynchronous version."""
 
 # freely inspired from https://github.com/encode/httpcore/blob/master/scripts/unasync.py
@@ -62,10 +64,10 @@ def unasync_file_check(in_path, out_path):
             if out_line != expected:
                 print(
                     f"L{line_nb + 1}: unasync mismatch between {in_path!r} and {out_path!r}"
-                )  # noqa: T201
-                print(f"Async code:         {in_line!r}")  # noqa: T201
-                print(f"Expected sync code: {expected!r}")  # noqa: T201
-                print(f"Actual sync code:   {out_line!r}")  # noqa: T201
+                )
+                print(f"Async code:         {in_line!r}")
+                print(f"Expected sync code: {expected!r}")
+                print(f"Actual sync code:   {out_line!r}")
                 sys.exit(1)
 
 
@@ -90,8 +92,8 @@ def main():  # noqa: D103
             if i not in USED_SUBSTITUTIONS
         ]
 
-        print("These patterns were not used:")  # noqa: T201
-        pprint(unused_subs)  # noqa: T203
+        print("These patterns were not used:")
+        pprint(unused_subs)
         sys.exit(1)
 
 

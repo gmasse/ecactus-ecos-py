@@ -93,8 +93,8 @@ async def test_get_today_device_data(client, bad_client):
         await bad_client.get_today_device_data(device_id=0)
     with pytest.raises(UnauthorizedDeviceError):
         await client.get_today_device_data(device_id=0)
-    data = await client.get_today_device_data(device_id=1234567890123456789)
-    assert len(data["solarPowerDps"]) > 0
+    power_ts = await client.get_today_device_data(device_id=1234567890123456789)
+    assert len(power_ts.metrics) > 0
 
 
 async def test_get_realtime_device_data(client, bad_client):
@@ -103,8 +103,8 @@ async def test_get_realtime_device_data(client, bad_client):
         await bad_client.get_realtime_device_data(device_id=0)
     with pytest.raises(UnauthorizedDeviceError):
         await client.get_realtime_device_data(device_id=0)
-    data = await client.get_realtime_device_data(device_id=1234567890123456789)
-    assert data.get("homePower") is not None
+    power_metrics = await client.get_realtime_device_data(device_id=1234567890123456789)
+    assert power_metrics.home is not None
 
 
 async def test_get_realtime_home_data(client, bad_client):
@@ -113,8 +113,8 @@ async def test_get_realtime_home_data(client, bad_client):
         await bad_client.get_realtime_home_data(home_id=0)
     with pytest.raises(HomeDoesNotExistError):
         await client.get_realtime_home_data(home_id=0)
-    data = await client.get_realtime_home_data(home_id=9876543210987654321)
-    assert data.get("homePower") is not None
+    power_metrics = await client.get_realtime_home_data(home_id=9876543210987654321)
+    assert power_metrics.home is not None
 
 
 async def test_get_history(client, bad_client):
@@ -128,10 +128,10 @@ async def test_get_history(client, bad_client):
         await client.get_history(
             device_id=1234567890123456789, start_date=now, period_type=5
         )
-    data = await client.get_history(
+    history = await client.get_history(
         device_id=1234567890123456789, start_date=now, period_type=4
     )
-    assert len(data["homeEnergyDps"]) == 1
+    assert len(history.metrics) == 1
 
     # TODO other period types
 
@@ -147,10 +147,10 @@ async def test_get_insight(client, bad_client):
         await client.get_insight(
             device_id=1234567890123456789, start_date=now, period_type=1
         )
-    data = await client.get_insight(
+    insight = await client.get_insight(
         device_id=1234567890123456789, start_date=now, period_type=0
     )
-    assert len(data["deviceRealtimeDto"]["solarPowerDps"]) > 1
+    assert len(insight.power_timeseries.metrics) > 1
 
 
 # TODO test 404

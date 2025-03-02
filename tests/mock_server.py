@@ -393,7 +393,7 @@ class EcosMockServer:
         # TODO other period time
         if request_payload.get("periodType") != 4:
             return EcosMockServer._not_implemented_response()
-        current_month_timestamp = (
+        current_month_timestamp = int(
             datetime.today()
             .replace(day=1, hour=0, minute=0, second=0, microsecond=0)
             .timestamp()

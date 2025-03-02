@@ -93,8 +93,8 @@ def test_get_today_device_data(client, bad_client):
         bad_client.get_today_device_data(device_id=0)
     with pytest.raises(UnauthorizedDeviceError):
         client.get_today_device_data(device_id=0)
-    data = client.get_today_device_data(device_id=1234567890123456789)
-    assert len(data["solarPowerDps"]) > 0
+    power_ts = client.get_today_device_data(device_id=1234567890123456789)
+    assert len(power_ts.metrics) > 0
 
 
 def test_get_realtime_device_data(client, bad_client):
@@ -103,8 +103,8 @@ def test_get_realtime_device_data(client, bad_client):
         bad_client.get_realtime_device_data(device_id=0)
     with pytest.raises(UnauthorizedDeviceError):
         client.get_realtime_device_data(device_id=0)
-    data = client.get_realtime_device_data(device_id=1234567890123456789)
-    assert data.get("homePower") is not None
+    power_metrics = client.get_realtime_device_data(device_id=1234567890123456789)
+    assert power_metrics.home is not None
 
 
 def test_get_realtime_home_data(client, bad_client):
@@ -113,8 +113,8 @@ def test_get_realtime_home_data(client, bad_client):
         bad_client.get_realtime_home_data(home_id=0)
     with pytest.raises(HomeDoesNotExistError):
         client.get_realtime_home_data(home_id=0)
-    data = client.get_realtime_home_data(home_id=9876543210987654321)
-    assert data.get("homePower") is not None
+    power_metrics = client.get_realtime_home_data(home_id=9876543210987654321)
+    assert power_metrics.home is not None
 
 
 def test_get_history(client, bad_client):
@@ -125,11 +125,13 @@ def test_get_history(client, bad_client):
     with pytest.raises(UnauthorizedDeviceError):
         client.get_history(device_id=0, start_date=now, period_type=0)
     with pytest.raises(ParameterVerificationFailedError):
-        client.get_history(device_id=1234567890123456789, start_date=now, period_type=5)
-    data = client.get_history(
+        client.get_history(
+            device_id=1234567890123456789, start_date=now, period_type=5
+        )
+    history = client.get_history(
         device_id=1234567890123456789, start_date=now, period_type=4
     )
-    assert len(data["homeEnergyDps"]) == 1
+    assert len(history.metrics) == 1
 
     # TODO other period types
 
@@ -142,11 +144,13 @@ def test_get_insight(client, bad_client):
     with pytest.raises(UnauthorizedDeviceError):
         client.get_insight(device_id=0, start_date=now, period_type=0)
     with pytest.raises(ParameterVerificationFailedError):
-        client.get_insight(device_id=1234567890123456789, start_date=now, period_type=1)
-    data = client.get_insight(
+        client.get_insight(
+            device_id=1234567890123456789, start_date=now, period_type=1
+        )
+    insight = client.get_insight(
         device_id=1234567890123456789, start_date=now, period_type=0
     )
-    assert len(data["deviceRealtimeDto"]["solarPowerDps"]) > 1
+    assert len(insight.power_timeseries.metrics) > 1
 
 
 # TODO test 404

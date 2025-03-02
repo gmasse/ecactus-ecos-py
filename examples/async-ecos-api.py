@@ -2,11 +2,13 @@
 """Demonstration usage of the Async Ecos class."""
 
 import asyncio
+from datetime import datetime
 import getpass
 import logging
 import os
 from pathlib import Path
 import sys
+from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "../src"))
 from ecactus import AsyncEcos
@@ -62,12 +64,22 @@ async def main() -> None:
     homes = await session.get_homes()
     print(homes)  # noqa: T201
 
+    start_date = datetime(2025, 1, 20, 10, 0, 0, tzinfo=ZoneInfo(user.timezone_name))
+
     for home in homes:
         if home.device_number > 0:
-            devices = await session.get_devices(home.id)
-            print(devices)  # noqa: T201
 
-    print(await session.get_all_devices())  # noqa: T201
+            #print(await session.get_realtime_home_data(home.id))  # noqa: T201
+
+            devices = await session.get_devices(home.id)
+            #print(devices)  # noqa: T201
+            for device in devices:
+                print(device) # noqa: T201
+                #print(await session.get_today_device_data(device.id))  # noqa: T201
+                #print(await session.get_history(device.id, period_type=1))  # noqa: T201
+                print(await session.get_insight(device.id, period_type=5, start_date=start_date))  # noqa: T201
+
+    #print(await session.get_all_devices())  # noqa: T201
 
 
 if __name__ == "__main__":

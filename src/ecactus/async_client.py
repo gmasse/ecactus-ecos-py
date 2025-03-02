@@ -4,7 +4,7 @@ from datetime import datetime
 import logging
 import time
 
-from .base import JSON, _BaseEcos
+from .base import _BaseEcos
 from .exceptions import (
     ApiResponseError,
     AuthenticationError,
@@ -13,7 +13,15 @@ from .exceptions import (
     UnauthorizedDeviceError,
     UnauthorizedError,  # noqa: F401 # imported to make it available in the docs
 )
-from .model import Device, Home, User
+from .model import (
+    Device,
+    DeviceInsight,
+    EnergyHistory,
+    Home,
+    PowerMetrics,
+    PowerTimeSeries,
+    User,
+)
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -146,29 +154,14 @@ class AsyncEcos(_BaseEcos):
             for device_data in await self._async_get("/api/client/home/device/list")
         ]
 
-    async def get_today_device_data(self, device_id: str) -> JSON:
+    async def get_today_device_data(self, device_id: str) -> PowerTimeSeries:
         """Get power metrics of the current day until now.
 
         Args:
             device_id: The device ID to get power metrics for.
 
         Returns:
-            Multiple metrics of the current day. Example:
-                ``` py
-                {
-                    "solarPowerDps": {
-                        "946685100": 0.0,
-                        "946685400": 0.0,
-                        ...
-                        "946733700": 0.0,
-                    },
-                    "batteryPowerDps": {...},
-                    "gridPowerDps": {...},
-                    "meterPowerDps": {...},
-                    "homePowerDps": {...},
-                    "epsPowerDps": {...},
-                }
-                ```
+            Metrics of the current day until now.
 
         Raises:
             UnauthorizedDeviceError: If the device is not authorized or unknown.
@@ -177,43 +170,24 @@ class AsyncEcos(_BaseEcos):
 
         """
         logger.info("Get current day data for device %s", device_id)
+        await self._ensure_login()
         try:
-            return await self._async_post(
+            return PowerTimeSeries(**await self._async_post(
                 "/api/client/home/now/device/realtime", payload={"deviceId": device_id}
-            )
+            ))
         except ApiResponseError as err:
             if err.code == 20424:
                 raise UnauthorizedDeviceError(device_id) from err
             raise
 
-    async def get_realtime_home_data(self, home_id: str) -> JSON:
+    async def get_realtime_home_data(self, home_id: str) -> PowerMetrics:
         """Get current power for the home.
 
         Args:
             home_id: The home ID to get current power for.
 
         Returns:
-            Power data. Example:
-                ``` py
-                {
-                    "batteryPower": 0,
-                    "epsPower": 0,
-                    "gridPower": 23,
-                    "homePower": 1118,
-                    "meterPower": 1118,
-                    "solarPower": 0,
-                    "chargePower": 0,
-                    "batterySocList": [
-                        {
-                            "deviceSn": "SHC000000000000001",
-                            "batterySoc": 0.0,
-                            "sysRunMode": 1,
-                            "isExistSolar": True,
-                            "sysPowerConfig": 3,
-                        }
-                    ],
-                }
-                ```
+            Current metrics for the home.
 
         Raises:
             HomeDoesNotExistError: If the home id is not correct.
@@ -223,52 +197,22 @@ class AsyncEcos(_BaseEcos):
         """
         logger.info("Get realtime data for home %s", home_id)
         try:
-            return await self._async_get(
+            return PowerMetrics(**await self._async_get(
                 "/api/client/v2/home/device/runData", payload={"homeId": home_id}
-            )
+            ))
         except ApiResponseError as err:
             if err.code == 20450:
                 raise HomeDoesNotExistError(home_id) from err
             raise
 
-    async def get_realtime_device_data(self, device_id: str) -> JSON:
+    async def get_realtime_device_data(self, device_id: str) -> PowerMetrics:
         """Get current power for a device.
 
         Args:
             device_id: The device ID to get current power for.
 
         Returns:
-            Power data. Example (without solar production):
-                ``` py
-                {
-                    "batterySoc": 0,
-                    "batteryPower": 0,
-                    "epsPower": 0,
-                    "gridPower": 0,
-                    "homePower": 3581,
-                    "meterPower": 3581,
-                    "solarPower": 0,
-                    "sysRunMode": 0,
-                    "isExistSolar": true,
-                    "sysPowerConfig": 3,
-                }
-                ```
-                Example when all solar production is used by home:
-                ``` py
-                {'batterySoc': 0.0, 'batteryPower': 0, 'epsPower': 0, 'gridPower': 2479, 'homePower': 3674, 'meterPower': 1102, 'solarPower': 2572, 'sysRunMode': 1, 'isExistSolar': True, 'sysPowerConfig': 3}
-                # Home 3674 (homePower)
-                # PV -> Home 2572 (solarPower)
-                # Grid -> Home 1102 (meterPower)
-                # gridPower (could be related to operating mode with % reserved SOC for grid connection)
-                ```
-                Example when solar over production is injected to the grid:
-                ``` py
-                {'batterySoc': 0.0, 'batteryPower': 0, 'epsPower': 0, 'gridPower': 4194, 'homePower': 3798, 'meterPower': -650, 'solarPower': 4448, 'sysRunMode': 1, 'isExistSolar': True, 'sysPowerConfig': 3}
-                # Home 3798
-                # PV -> Home 4448
-                # Home -> Grid 650
-                # gridPower (could be related to operating mode with % reserved SOC for grid connection)
-                ```
+            Current metrics for the device.
 
         Raises:
             UnauthorizedDeviceError: If the device is not authorized or unknown.
@@ -278,22 +222,21 @@ class AsyncEcos(_BaseEcos):
         """
         logger.info("Get realtime data for device %s", device_id)
         try:
-            return await self._async_post(
+            return PowerMetrics(**await self._async_post(
                 "/api/client/home/now/device/runData", payload={"deviceId": device_id}
-            )
+            ))
         except ApiResponseError as err:
             if err.code == 20424:
                 raise UnauthorizedDeviceError(device_id) from err
             raise
 
     async def get_history(
-        self, device_id: str, start_date: datetime, period_type: int
-    ) -> JSON:
+        self, device_id: str, period_type: int, start_date: datetime | None = None
+    ) -> EnergyHistory:
         """Get aggregated energy for a period.
 
         Args:
             device_id: The device ID to get history for.
-            start_date: The start date.
             period_type: Possible value:
 
                 - `0`: daily values of the calendar month corresponding to `start_date`
@@ -301,22 +244,10 @@ class AsyncEcos(_BaseEcos):
                 - `2`: daily values of the current month (`start_date` is ignored)
                 - `3`: same than 2 ?
                 - `4`: total for the current month (`start_date` is ignored)
+            start_date: The start date.
 
         Returns:
-            Data and metrics corresponding to the defined period. Example:
-                ``` py
-                {
-                    "energyConsumption": 1221.2,
-                    "solarPercent": 47.0,
-                    "homeEnergyDps": {
-                        "1733112000": 39.6,
-                        "1733198400": 68.1,
-                        "1733284800": 75.3,
-                        ...
-                        "1735707599": 41.3,
-                    },
-                }
-                ```
+            Data and metrics corresponding to the defined period.
 
         Raises:
             UnauthorizedDeviceError: If the device is not authorized or unknown.
@@ -326,16 +257,22 @@ class AsyncEcos(_BaseEcos):
 
         """
         logger.info("Get history for device %s", device_id)
-        start_ts = int(start_date.timestamp())
+        if start_date is None:
+            if period_type in (1, 2, 4):
+                start_ts = 0
+            else:
+                raise ParameterVerificationFailedError(f"start_date is required for period_type {period_type}")
+        else:
+            start_ts = int(start_date.timestamp()) if start_date is not None else 0
         try:
-            return await self._async_post(
+            return EnergyHistory(**await self._async_post(
                 "/api/client/home/history/home",
                 payload={
                     "deviceId": device_id,
                     "timestamp": start_ts,
                     "periodType": period_type,
                 },
-            )
+            ))
         except ApiResponseError as err:
             if err.code == 20424:
                 raise UnauthorizedDeviceError(device_id) from err
@@ -344,13 +281,12 @@ class AsyncEcos(_BaseEcos):
             raise
 
     async def get_insight(
-        self, device_id: str, start_date: datetime, period_type: int
-    ) -> JSON:
+        self, device_id: str, period_type: int, start_date: datetime | None = None
+    ) -> DeviceInsight:
         """Get energy metrics and statistics of a device for a period.
 
         Args:
             device_id: The device ID to get data for.
-            start_date: The start date.
             period_type: Possible value:
 
                 - `0`: 5-minute power measurement for the calendar day corresponding to `start_date` (`insightConsumptionDataDto` is `None`)
@@ -359,51 +295,10 @@ class AsyncEcos(_BaseEcos):
                 - `3`: (not implemented)
                 - `4`: monthly energy for the calendar year corresponding to `start_date` (`deviceRealtimeDto` is `None`)
                 - `5`: yearly energy, `start_date` is ignored (?) (`deviceRealtimeDto` is `None`)
+            start_date: The start date.
 
         Returns:
-            Statistics and metrics corresponding to the defined period. Example:
-                ``` py
-                {
-                    "selfPowered": 0,
-                    "deviceRealtimeDto": {
-                        "solarPowerDps": {
-                            "1732129500": 0.0,
-                            "1732129800": 0.0,
-                            ...
-                            "1732132800": 0.0,
-                        },
-                        "batteryPowerDps": {...},
-                        "gridPowerDps": {...},
-                        "meterPowerDps": {...},
-                        "homePowerDps": {...},
-                        "epsPowerDps": {...},
-                    },
-                    "deviceStatisticsDto": {
-                        "consumptionEnergy": 0.0,
-                        "fromBattery": 0.0,
-                        "toBattery": 0.0,
-                        "fromGrid": 0.0,
-                        "toGrid": 0.0,
-                        "fromSolar": 0.0,
-                        "eps": 0.0,
-                    },
-                    "insightConsumptionDataDto": {
-                        "fromBatteryDps": {
-                            "1733976000": 0.0,
-                            "1733889600": 0.0,
-                            ...
-                            "1734062400": 0.0,
-                        },
-                        "toBatteryDps": {...},
-                        "fromGridDps": {...},
-                        "toGridDps": {...},
-                        "fromSolarDps": {...},
-                        "homeEnergyDps": {...},
-                        "epsDps": {...},
-                        "selfPoweredDps": {...},
-                    },
-                }
-                ```
+            Statistics and metrics corresponding to the defined period.
 
         Raises:
             UnauthorizedDeviceError: If the device is not authorized or unknown.
@@ -413,16 +308,22 @@ class AsyncEcos(_BaseEcos):
 
         """
         logger.info("Get insight for device %s", device_id)
-        start_ts = int(start_date.timestamp() * 1000)  # timestamp in milliseconds
+        if start_date is None:
+            if period_type == 5:
+                start_ts = 0
+            else:
+                raise ParameterVerificationFailedError(f"start_date is required for period_type {period_type}")
+        else:
+            start_ts = int(start_date.timestamp() * 1000)  # timestamp in milliseconds
         try:
-            return await self._async_post(
+            return DeviceInsight(**await self._async_post(
                 "/api/client/v2/device/three/device/insight",
                 payload={
                     "deviceId": device_id,
                     "timestamp": start_ts,
                     "periodType": period_type,
                 },
-            )
+            ))
         except ApiResponseError as err:
             if err.code == 20424:
                 raise UnauthorizedDeviceError(device_id) from err
