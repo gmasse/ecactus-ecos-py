@@ -14,7 +14,7 @@ This Python client provides both synchronous and asynchronous interfaces to inte
 ```bash
 python -m venv venv
 source venv/bin/activate
-pip install git+https://github.com/gmasse/ecactus-ecos-py.git
+pip install ecactus-ecos-py
 ```
 
 ## Usage
@@ -29,8 +29,8 @@ session = Ecos(datacenter='EU')
 session.login('email@domain.com', 'mypassword')
 
 # Fetch user details
-user_info = session.get_user_info()
-print(user_info)
+user = session.get_user()
+print(user)
 
 # Retrieve all the devices
 devices = session.get_all_devices()
@@ -49,8 +49,8 @@ async def main():
     await session.login('email@domain.com', 'mypassword')
 
     # Fetch user details
-    user_info = await session.get_user_info()
-    print(user_info)
+    user = await session.get_user()
+    print(user)
 
     # Retrieve all the devices
     devices = await session.get_all_devices()
@@ -82,6 +82,21 @@ python -m pip install '.[dev]'
 We invite you to contribute to the project by opening an issue or pull request to propose new features, fix bugs, or enhance the documentation.
 
 For pending tasks and improvements, please check the [TODO.md](TODO.md) file.
+
+### Automatic Synchronous Code Generation
+
+The `ecactus.Ecos` synchronous class, defined in [src/ecactus/client.py](src/ecactus/client.py), is **automatically generated** from the `ecactus.AsyncEcos` class using [scripts/unasync.py](scripts/unasync.py). When making changes to the `ecactus.AsyncEcos` class, you should re-run this script to regenerate the `ecactus.Ecos` class:
+```
+python scripts/unasync.py
+```
+
+This ensures that both the synchronous and asynchronous APIs remain consistent.
+
+To verify that the generated synchronous class matches the asynchronous class, use the `--check` option:
+```
+python scripts/unasync.py --check
+```
+This will report any differences between the two classes, allowing you to catch any inconsistencies before submitting your changes.
 
 ### Code Quality
 
