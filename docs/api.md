@@ -3,7 +3,15 @@
 ::: ecactus
     options:
       inherited_members: true
-      show_bases: false
-      members_order: "source"
-      merge_init_into_class: true
 
+::: ecactus.model
+    options:
+      show_source: false
+      show_root_heading: true
+      show_root_full_path: true
+
+::: ecactus.exceptions
+    options:
+      show_source: false
+      show_root_heading: true
+      show_root_full_path: true
