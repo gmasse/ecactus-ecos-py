@@ -1,6 +1,6 @@
 """Unit tests for asynchronous Ecos class."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 
 import pytest
@@ -9,7 +9,9 @@ import ecactus
 from ecactus.exceptions import (
     AuthenticationError,
     HomeDoesNotExistError,
+    HttpError,
     InitializationError,
+    InvalidJsonError,
     ParameterVerificationFailedError,
     UnauthorizedDeviceError,
     UnauthorizedError,
@@ -34,6 +36,28 @@ def bad_client(mock_server):
     return ecactus.AsyncEcos(url=mock_server.url, access_token="wrong_token")
 
 
+def test_exceptions():
+    """Test exceptions."""
+    exc = InitializationError()
+    assert str(exc) == "Initialization error"
+    exc = AuthenticationError()
+    assert str(exc) == "Account or password or country error"
+    exc = UnauthorizedError()
+    assert str(exc) == "Unauthorized"
+    exc = HomeDoesNotExistError()
+    assert str(exc) == "Home does not exist"
+    exc = HomeDoesNotExistError("home_id")
+    assert str(exc) == "Home does not exist: home_id"
+    exc = UnauthorizedDeviceError()
+    assert str(exc) == "Device is not authorized"
+    exc = ParameterVerificationFailedError()
+    assert str(exc) == "Parameter verification failed"
+    exc = InvalidJsonError()
+    assert str(exc) == "Invalid JSON"
+    exc = HttpError(404, "Not Found")
+    assert str(exc) == "HTTP error: 404 Not Found"
+
+
 def test_client():
     """Test ECOS client."""
     with pytest.raises(InitializationError):
@@ -42,6 +66,17 @@ def test_client():
         ecactus.AsyncEcos(datacenter="XX")
     client = ecactus.AsyncEcos(datacenter="EU")
     assert "weiheng-tech.com" in client.url
+
+
+async def test_ensure_login(mock_server):
+    """Test autologin."""
+    temp_client = ecactus.AsyncEcos(url=mock_server.url)
+    with pytest.raises(AuthenticationError) as excinfo:
+        user = await temp_client.get_user()
+    assert str(excinfo.value) == "Missing Account or Password"
+    temp_client = ecactus.AsyncEcos(email=LOGIN, password=PASSWORD, url=mock_server.url)
+    user = await temp_client.get_user()
+    assert user.username == LOGIN
 
 
 async def test_login(mock_server, client):
@@ -95,7 +130,32 @@ async def test_get_today_device_data(client, bad_client):
         await client.get_today_device_data(device_id=0)
     power_ts = await client.get_today_device_data(device_id=1234567890123456789)
     assert len(power_ts.metrics) > 0
-
+    # get the first  timestamp
+    first_timestamp = power_ts.metrics[0].timestamp
+    assert power_ts.find_by_timestamp(first_timestamp, exact=False).solar is not None
+    assert power_ts.find_by_timestamp(first_timestamp, exact=True).solar is not None
+    # get a timestamp that does not exist
+    before_timestamp = first_timestamp - timedelta(seconds=1)
+    assert power_ts.find_by_timestamp(before_timestamp, exact=False).solar == power_ts.metrics[0].solar # the nearst metric is returned
+    assert power_ts.find_by_timestamp(before_timestamp, exact=True) is None # exact lookup returns None
+    # get a timestamp after the last one
+    last_timestamp = power_ts.metrics[-1].timestamp
+    after_timestamp =  last_timestamp + timedelta(seconds=1)
+    assert power_ts.find_by_timestamp(after_timestamp, exact=False).solar == power_ts.metrics[-1].solar # value is 1/10th of the position
+    assert power_ts.find_by_timestamp(after_timestamp, exact=True) is None
+    # get a timestamp within 2 existings
+    if len(power_ts.metrics) > 2:
+        timestamp1 = power_ts.metrics[1].timestamp
+        timestamp2 = power_ts.metrics[2].timestamp
+        delta = timestamp2 - timestamp1
+        if delta >= timedelta(seconds=2):
+            timestamp = timestamp1 + delta/2
+            assert power_ts.find_by_timestamp(timestamp, exact=False).solar == power_ts.metrics[1].solar # returns the value in 2nd position
+            timestamp = timestamp1 + delta/2 + timedelta(seconds=1)
+            assert power_ts.find_by_timestamp(timestamp, exact=False).solar == power_ts.metrics[2].solar # returns the value in 3rd position
+    # return series between 2 dates
+    between_ts = power_ts.find_between(first_timestamp, last_timestamp)
+    assert len(between_ts.metrics) == len(power_ts.metrics)
 
 async def test_get_realtime_device_data(client, bad_client):
     """Test get realtime device data."""
@@ -147,10 +207,19 @@ async def test_get_insight(client, bad_client):
         await client.get_insight(
             device_id=1234567890123456789, start_date=now, period_type=1
         )
+    with pytest.raises(ParameterVerificationFailedError):
+        await client.get_insight(
+            device_id=1234567890123456789, period_type=1
+        )
     insight = await client.get_insight(
         device_id=1234567890123456789, start_date=now, period_type=0
     )
     assert len(insight.power_timeseries.metrics) > 1
+    insight = await client.get_insight(
+        device_id=1234567890123456789, start_date=now, period_type=2
+    )
+    assert len(insight.energy_timeseries.metrics) > 1
+
 
 
 # TODO test 404

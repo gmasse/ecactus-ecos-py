@@ -66,6 +66,9 @@ class AsyncEcos(_BaseEcos):
         except ApiResponseError as err:
             if err.code == 20414:
                 raise AuthenticationError from err
+            if err.code == 20000:
+                raise AuthenticationError("Missing Account or Password") from err
+            raise
         self.access_token = data["accessToken"]
         self.refresh_token = data["refreshToken"]
 

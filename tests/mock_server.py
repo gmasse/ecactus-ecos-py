@@ -8,6 +8,7 @@ import string
 from typing import Any
 
 from aiohttp import web
+from dateutil.relativedelta import relativedelta
 from multidict import CIMultiDictProxy
 
 # Configure logging
@@ -108,7 +109,7 @@ class EcosMockServer:
     async def handle_login(self, request: web.Request) -> web.Response:
         """Mock login endpoint."""
         output: JSON = {}
-        data: dict = await request.json()  # Parse the JSON payload
+        data = await request.json()  # Parse the JSON payload
         if (
             not data.get("clientVersion")
             or data.get("clientType") != "BROWSER"
@@ -423,45 +424,84 @@ class EcosMockServer:
             return EcosMockServer._ok_response(
                 code=20404, message="Parameter verification failed", success=False
             )
-        if request_payload.get("periodType") != 0:
-            return EcosMockServer._not_implemented_response()
-        start_date = datetime.fromtimestamp(
-            int(request_payload.get("timestamp") / 1000)
-        ).replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )  # convert timestamp (in milliseconds) to datetime
-        end_date = start_date + timedelta(days=1)
-        fake_data: dict[str, float] = await self._generate_metrics_data(
-            start_date, end_date
-        )
-        latest_timestamp = max(fake_data.keys())
-        fake_data[str(int(latest_timestamp) - 1)] = fake_data.pop(
-            latest_timestamp
-        )  # rename the latest timestamp by (timestamp - 1 sec)
-
-        return EcosMockServer._success_response(
-            data={
-                "selfPowered": 31.0,
-                "deviceRealtimeDto": {
-                    "solarPowerDps": fake_data,
-                    "batteryPowerDps": fake_data,
-                    "gridPowerDps": fake_data,
-                    "meterPowerDps": fake_data,
-                    "homePowerDps": fake_data,
-                    "epsPowerDps": fake_data,
-                },
-                "deviceStatisticsDto": {
-                    "consumptionEnergy": 42.5,
-                    "fromBattery": 0.0,
-                    "toBattery": 0.0,
-                    "fromGrid": 29.2,
-                    "toGrid": 6.3,
-                    "fromSolar": 19.6,
-                    "eps": 0.0,
-                },
-                "insightConsumptionDataDto": None,
-            }
-        )
+        if request_payload.get("periodType") == 0: # 5-minute power measurement for the provided day
+            start_date = datetime.fromtimestamp(
+                int(request_payload.get("timestamp", int(datetime.now().timestamp()*1000)) / 1000)
+            ).replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )  # convert timestamp (in milliseconds) to datetime
+            end_date = start_date + timedelta(days=1)
+            fake_data: dict[str, float] = await self._generate_metrics_data(
+                start_date, end_date
+            )
+            latest_timestamp = max(fake_data.keys())
+            fake_data[str(int(latest_timestamp) - 1)] = fake_data.pop(
+                latest_timestamp
+            )  # rename the latest timestamp by (timestamp - 1 sec)
+            return EcosMockServer._success_response(
+                data={
+                    "selfPowered": 31.0,
+                    "deviceRealtimeDto": {
+                        "solarPowerDps": fake_data,
+                        "batteryPowerDps": fake_data,
+                        "gridPowerDps": fake_data,
+                        "meterPowerDps": fake_data,
+                        "homePowerDps": fake_data,
+                        "epsPowerDps": fake_data,
+                    },
+                    "deviceStatisticsDto": {
+                        "consumptionEnergy": 42.5,
+                        "fromBattery": 0.0,
+                        "toBattery": 0.0,
+                        "fromGrid": 29.2,
+                        "toGrid": 6.3,
+                        "fromSolar": 19.6,
+                        "eps": 0.0,
+                    },
+                    "insightConsumptionDataDto": None,
+                }
+            )
+        if request_payload.get("periodType") == 2: # daily energy for the provided month
+            start_date = datetime.fromtimestamp(
+                int(request_payload.get("timestamp", int(datetime.now().timestamp()*1000)) / 1000)
+            ).replace(
+                day=1, hour=0, minute=0, second=0, microsecond=0
+            )  # convert timestamp (in milliseconds) to datetime
+            end_date = start_date + relativedelta(months=1)
+            fake_data = await self._generate_metrics_data(
+                start_date, end_date, interval=timedelta(days=1)
+            )
+            latest_timestamp = max(fake_data.keys())
+            fake_data[str(int(latest_timestamp) - 1)] = fake_data.pop(
+                latest_timestamp
+            )  # rename the latest timestamp by (timestamp - 1 sec)
+            return EcosMockServer._success_response(
+                data={
+                    "selfPowered": 31.0,
+                    "deviceRealtimeDto": None,
+                    "deviceStatisticsDto": {
+                        "consumptionEnergy": 42.5,
+                        "fromBattery": 0.0,
+                        "toBattery": 0.0,
+                        "fromGrid": 29.2,
+                        "toGrid": 6.3,
+                        "fromSolar": 19.6,
+                        "eps": 0.0,
+                    },
+                    "insightConsumptionDataDto": {
+                        "fromBatteryDps": fake_data,
+                        "toBatteryDps": fake_data,
+                        "fromGridDps": fake_data,
+                        "toGridDps": fake_data,
+                        "fromSolarDps": fake_data,
+                        "homeEnergyDps": fake_data,
+                        "epsDps": fake_data,
+                        "selfPoweredDps": fake_data,
+                    },
+                }
+            )
+        # if request_payload.get("periodType") not in (0, 2):
+        return EcosMockServer._not_implemented_response()
 
     async def catch_all(self, request: web.Request) -> web.Response:
         """Catch all endpoint."""

@@ -92,9 +92,9 @@ class ParameterVerificationFailedError(EcosApiError):
     def __init__(self, message: str | None = None) -> None:
         """Initialize the exception with a default error message."""
         if message is None:
-            super().__init__("Parameter Verification Failed")
+            super().__init__("Parameter verification failed")
         else:
-            super().__init__(f"Parameter Verification Failed: {message}")
+            super().__init__(f"Parameter verification failed: {message}")
 
 
 class InvalidJsonError(EcosApiError):
