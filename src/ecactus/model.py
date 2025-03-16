@@ -249,7 +249,7 @@ class PowerTimeSeries(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _transform_raw_data(cls, data: dict[str, dict]) -> dict[str, list]:
+    def _transform_raw_data(cls, data: dict[str, Any]) -> dict[str, list[Any]]:
         """Extract points from raw ECOS data.
 
         Args:
@@ -259,6 +259,12 @@ class PowerTimeSeries(BaseModel):
             Formatted data compatible with a list of PowerMetrics.
 
         """
+
+        # no tranformation if input if already a list of metrics
+        if 'metrics' in data:
+            if all(isinstance(m, PowerMetrics) for m in data['metrics']):
+                return data
+
         solar = data.get("solarPowerDps", {})
         battery = data.get("batteryPowerDps", {})
         grid = data.get("gridPowerDps", {})
@@ -394,7 +400,7 @@ class EnergyHistory(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _transform_raw_data(cls, data: dict[str, Any]) -> dict[str, Any]:
+    def _transform_raw_data(cls, data: dict[str, Any]) -> dict[str, list[Any]]:
         """Extract points from raw ECOS data.
 
         Args:
@@ -406,7 +412,7 @@ class EnergyHistory(BaseModel):
         """
         home = data.get("homeEnergyDps", {})
         timestamps = sorted(home.keys(), key=lambda ts: int(ts))
-        data_points: list[dict] = []
+        data_points: list[dict[str, Any]] = []
         for ts in timestamps:
             ts_dt = datetime.fromtimestamp(int(ts))
             data_points.append({
@@ -504,7 +510,7 @@ class ConsumptionTimeSeries(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _transform_raw_data(cls, data: dict[str, dict]) -> dict[str, list]:
+    def _transform_raw_data(cls, data: dict[str, Any]) -> dict[str, list[Any]]:
         """Extract points from raw ECOS data.
 
         Args:
@@ -514,6 +520,11 @@ class ConsumptionTimeSeries(BaseModel):
             Formatted data compatible with a list of ConsumptionMetrics.
 
         """
+        # no tranformation if input if already a list of metrics
+        if 'metrics' in data:
+            if all(isinstance(m, ConsumptionMetrics) for m in data['metrics']):
+                return data
+
         from_battery = data.get("fromBatteryDps", {})
         to_battery = data.get("toBatteryDps", {})
         from_grid = data.get("fromGridDps", {})
