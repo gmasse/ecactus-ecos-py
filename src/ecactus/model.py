@@ -44,11 +44,11 @@ class Home(BaseModel):
     Attributes:
         id: Unique identifier for the home.
         name: Name of the home (or `SHARED_DEVICES` if the home is shared from another account).
-        type: Type of the home.
+        type_int: Type number of the home.
         longitude: Longitude of the home's location, or None if not specified.
         latitude: Latitude of the home's location, or None if not specified.
         device_number: Number of devices associated with the home.
-        relation_type: Type of relation for the home.
+        relation_type_int: Type number of relation for the home.
         create_time: Time when the home was created.
         update_time: Time when the home was last updated.
 
@@ -56,11 +56,13 @@ class Home(BaseModel):
 
     id: str = Field(alias="homeId")
     name: str = Field(alias="homeName")
-    type: int = Field(alias="homeType")
+    type_int: int = Field(alias="homeType")
+    #TODO: type (based on an Enum)
     longitude: float | None = None
     latitude: float | None = None
     device_number: int = Field(alias="homeDeviceNumber")
-    relation_type: int = Field(alias="relationType")
+    relation_type_int: int = Field(alias="relationType")
+    #TODO: relation_type (based on an Enum)
     create_time: datetime = Field(alias="createTime")
     update_time: datetime = Field(alias="updateTime")
 
@@ -69,7 +71,7 @@ class Home(BaseModel):
     @model_validator(mode="after")
     def _enforce_shared_device_name(self) -> Self:
         """Force the name for virtual home 'shared devices' (homeType=0)."""
-        if self.type == 0:
+        if self.type_int == 0:
             self.name = "SHARED_DEVICES"
         return self
 
@@ -80,29 +82,32 @@ class Device(BaseModel):
     Attributes:
         id: Unique identifier for the device.
         alias: Human-readable name for the device (e.g., "My Device").
-        state: Current state of the device.
+        state_int: Current state number of the device.
         vpp: VPP status.
-        type: Type of the device.
+        type_int: Type number of the device.
         serial: Device serial number.
         agent_id: Unique identifier for the device's agent.
         longitude: Longitude of the device's location.
         latitude: Latitude of the device's location.
         device_type: Unknown (e.g., "XX-XXX123").
-        master: Master status.
+        master_int: Master status number.
 
     """
 
     id: str = Field(alias="deviceId")
     alias: str = Field(alias="deviceAliasName")
-    state: int
+    state_int: int = Field(alias="state")
+    #TODO: state (based on an Enum)
     vpp: bool
-    type: int
+    type_int: int = Field(alias="type")
+    #TODO: type (based on an Enum)
     serial: str = Field(alias="deviceSn")
     agent_id: str = Field(alias="agentId")
     longitude: float = Field(alias="lon")
     latitude: float = Field(alias="lat")
     device_type: str | None = Field(alias="deviceType")
-    master: int
+    master_int: int = Field(alias="master")
+    #TODO: master (based on an Enum)
 
     model_config = ConfigDict(extra="allow", populate_by_name=True)  # Allows additional fields. Allows to populate by field name in the model attribute, as well as the aliases.
 # Extra fields :
