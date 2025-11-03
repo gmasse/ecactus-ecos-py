@@ -90,7 +90,7 @@ class _BaseEcos:
 
         api_path = api_path.lstrip("/")  # remove / from beginning of api_path
         full_url = self.url + "/" + api_path
-        logger.info("API GET call: %s", full_url)
+        logger.debug("API GET call: %s", full_url)
         response = None
         try:
             response = requests.get(
@@ -138,6 +138,7 @@ class _BaseEcos:
 
         api_path = api_path.lstrip("/")  # remove / from beginning of api_path
         full_url = self.url + "/" + api_path
+        logger.debug("API POST call: %s", full_url)
         response = None
         try:
             response = requests.post(
@@ -185,7 +186,7 @@ class _BaseEcos:
 
         api_path = api_path.lstrip("/")  # remove / from beginning of api_path
         full_url = self.url + "/" + api_path
-        logger.info("API GET call: %s", full_url)
+        logger.debug("API GET call: %s", full_url)
 
         headers = (
             {"Authorization": self.access_token}
@@ -240,7 +241,7 @@ class _BaseEcos:
 
         api_path = api_path.lstrip("/")  # remove / from beginning of api_path
         full_url = self.url + "/" + api_path
-        logger.info("API POST call: %s", full_url)
+        logger.debug("API POST call: %s", full_url)
 
         headers = (
             {"Authorization": self.access_token}
