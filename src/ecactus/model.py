@@ -2,6 +2,7 @@
 
 from bisect import bisect_left
 from datetime import datetime
+from typing import ClassVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from typing_extensions import Annotated, Any, Self  # noqa: UP035
@@ -578,3 +579,99 @@ class DeviceInsight(BaseModel):
     model_config = ConfigDict(populate_by_name=True)  # Allows to populate by field name in the model attribute, as well as the aliases.
 
 
+class EventType(BaseModel):
+    """Event type with a catalog and a generic fallback.
+
+    Attributes:
+        code: The event code (e.g., "event_0", "dsp_10").
+        type: The type string ("event", "fault").
+        type_id: The type integer (0=event, 2=fault).
+        message: English description of the event.
+
+    """
+
+    # Public fields (kept to mirror API attribute names)
+    code: str = Field(validation_alias="errorCode")
+    type: str = Field(validation_alias="eventType")
+    type_id: int | None = Field(validation_alias="eventTypeInt")
+    description: str = Field(validation_alias="eventContentEn")
+
+    # Known catalog (code -> (type, type_id, message))
+    _CATALOG: ClassVar[dict[str, tuple[str, int, str]]] = {
+        "event_0": ("event", 0, "Waiting for Grid"),
+        "event_1": ("event", 0, "Grid Connected"),
+        "event_5": ("event", 0, "Checking"),
+        "dsp_10": ("fault", 2, "Grid Off Fault"),
+        "dsp_11": ("fault", 2, "Grid Voltage Undertrip/Overtrip Fault"),
+        # Add more known entries here
+    }
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    # @property
+    # def is_fault(self) -> bool:
+    #     return self.type == "fault"
+
+    # @property
+    # def is_event(self) -> bool:
+    #     return self.type == "event"
+
+    @classmethod
+    def from_code(cls, code: str) -> "EventType | None":
+        """Return a cataloged EventType if code is known, else None."""
+        known_event_type = cls._CATALOG.get(code)
+        if not known_event_type:
+            return None
+        type_str, type_id, description = known_event_type
+        return cls(code=code, type=type_str, type_id=type_id, description=description)
+
+    @classmethod
+    def from_raw(cls, data: dict[str, Any]) -> "EventType":
+        """Build from raw data item, using catalog when known, else a generic fallback."""
+        code = data.get("errorCode") or ""
+        # Try catalog first
+        known_event_type = cls.from_code(code) if code else None
+        if known_event_type is not None:
+            return known_event_type
+
+        # Fallback uses API-provided values when available
+        type_str = (data.get("eventType") or "").lower().strip()
+        type_id = data.get("eventTypeInt")
+        description = data.get("eventContentEn") or "Unknown"
+
+        return cls(
+            code=code,
+            type=type_str,
+            type_id=type_id,
+            description=description,
+        )
+
+
+class Event(BaseModel):
+    """Represents a single event occurrence.
+
+    Attributes:
+        event_type: The normalized event type (cataloged or generic).
+        occurrence_time: When the event occurred.
+
+    """
+
+    event_type: EventType
+    occurrence_time: datetime = Field(alias="occurrenceTime")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _transform_raw_data(cls, data: Any) -> dict[str, Any]:
+        """Transform API response into EventItem structure.
+
+        Uses catalog lookup; if not found, builds a generic EventType from API fields.
+        """
+        if isinstance(data, dict) and "errorCode" in data:
+            typed_data = cast(dict[str, Any], data)
+            return {
+                "event_type": EventType.from_raw(typed_data),
+                "occurrenceTime": typed_data.get("occurrenceTime"),
+            }
+        return cast(dict[str, Any], data)

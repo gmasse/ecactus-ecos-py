@@ -64,7 +64,8 @@ async def main() -> None:
     homes = await session.get_homes()
     print(homes)  # noqa: T201
 
-    start_date = datetime(2025, 1, 20, 10, 0, 0, tzinfo=ZoneInfo(user.timezone_name))
+    start_date = datetime(2025, 10, 27, 10, 0, 0, tzinfo=ZoneInfo(user.timezone_name))
+    end_date = datetime(2025, 11, 3, 10, 0, 0, tzinfo=ZoneInfo(user.timezone_name))  # noqa: F841
 
     for home in homes:
         if home.device_number > 0:
@@ -78,8 +79,12 @@ async def main() -> None:
                 #print(await session.get_today_device_data(device.id))  # noqa: T201
                 #print(await session.get_history(device.id, period_type=1))  # noqa: T201
                 print(await session.get_insight(device.id, period_type=5, start_date=start_date))  # noqa: T201
+                #events = await session.get_fault_events(device.id, start_date=start_date, end_date=end_date)
+                #for event in events:
+                #    print(f"{event.occurrence_time}, {event.event_type.code}, {event.event_type.type}, {event.event_type.type_id}, {event.event_type.description}")  # noqa: T201
 
     #print(await session.get_all_devices())  # noqa: T201
+
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@
 from datetime import datetime
 import logging
 import time
+from typing import Any
 
 from .base import _BaseEcos
 from .exceptions import (
@@ -17,6 +18,7 @@ from .model import (
     Device,
     DeviceInsight,
     EnergyHistory,
+    Event,
     Home,
     PowerMetrics,
     PowerTimeSeries,
@@ -333,3 +335,39 @@ class Ecos(_BaseEcos):
             if err.code == 20404:
                 raise ParameterVerificationFailedError from err
             raise
+
+    def get_fault_events(self, device_id: str, start_date: datetime, end_date: datetime) -> list[Event]:
+        """Get fault events for a device.
+
+        Args:
+            device_id: The device ID to get events for.
+            start_date: The start date.
+            end_date: The end date.
+
+        Returns:
+            A list of events.
+
+        """
+        logger.info("Get events for device %s", device_id)
+        start_ts = int(start_date.timestamp())
+        end_ts = int(end_date.timestamp())
+        try:
+            output: dict[str, Any] = self._post(
+                "/api/client/home/events/fault",
+                payload={
+                    "deviceId": device_id,
+                    "start": start_ts,
+                    "end": end_ts,
+                    "pageSize": 1000000, # large number to get all events in one call
+                    "pageNum": 0,
+                },
+            )
+        except ApiResponseError as err:
+            if err.code == 20424:
+                raise UnauthorizedDeviceError(device_id) from err
+            raise
+        return [
+            Event(**event_data)
+            for event_data in output.get("data", [])
+        ]
+
