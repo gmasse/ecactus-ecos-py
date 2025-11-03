@@ -90,7 +90,8 @@ class _BaseEcos:
 
         api_path = api_path.lstrip("/")  # remove / from beginning of api_path
         full_url = self.url + "/" + api_path
-        logger.info("API GET call: %s", full_url)
+        logger.debug("API GET call: %s", full_url)
+        response = None
         try:
             response = requests.get(
                 full_url, params=payload, headers={"Authorization": self.access_token}
@@ -98,7 +99,7 @@ class _BaseEcos:
             logger.debug(response.text)
             body = response.json()
         except requests.exceptions.JSONDecodeError as err:
-            if response.status_code != 200:
+            if response and response.status_code != 200:
                 raise HttpError(response.status_code, response.text) from err
             raise InvalidJsonError from err
         else:
@@ -137,7 +138,8 @@ class _BaseEcos:
 
         api_path = api_path.lstrip("/")  # remove / from beginning of api_path
         full_url = self.url + "/" + api_path
-        logger.info("API POST call: %s", full_url)
+        logger.debug("API POST call: %s", full_url)
+        response = None
         try:
             response = requests.post(
                 full_url, json=payload, headers={"Authorization": self.access_token}
@@ -145,7 +147,7 @@ class _BaseEcos:
             logger.debug(response.text)
             body = response.json()
         except requests.exceptions.JSONDecodeError as err:
-            if response.status_code != 200:
+            if response and response.status_code != 200:
                 raise HttpError(response.status_code, response.text) from err
             raise InvalidJsonError from err
         else:
@@ -184,7 +186,7 @@ class _BaseEcos:
 
         api_path = api_path.lstrip("/")  # remove / from beginning of api_path
         full_url = self.url + "/" + api_path
-        logger.info("API GET call: %s", full_url)
+        logger.debug("API GET call: %s", full_url)
 
         headers = (
             {"Authorization": self.access_token}
@@ -192,6 +194,7 @@ class _BaseEcos:
             else None
         )
         async with aiohttp.ClientSession() as session:
+            response = None
             try:
                 async with session.get(
                     full_url, params=payload, headers=headers
@@ -199,11 +202,11 @@ class _BaseEcos:
                     logger.debug(await response.text())
                     body = await response.json()
             except aiohttp.ContentTypeError as err:
-                if response.status != 200:
+                if response and response.status != 200:
                     raise HttpError(response.status, await response.text()) from err
                 raise InvalidJsonError from err
             else:
-                if response.status != 200:
+                if response and response.status != 200:
                     error_msg = body.get(
                         "message", await response.text()
                     )  # return message from JSON if avalaible, or HTTP response text
@@ -238,7 +241,7 @@ class _BaseEcos:
 
         api_path = api_path.lstrip("/")  # remove / from beginning of api_path
         full_url = self.url + "/" + api_path
-        logger.info("API POST call: %s", full_url)
+        logger.debug("API POST call: %s", full_url)
 
         headers = (
             {"Authorization": self.access_token}
@@ -246,6 +249,7 @@ class _BaseEcos:
             else None
         )
         async with aiohttp.ClientSession() as session:
+            response = None
             try:
                 async with session.post(
                     full_url, json=payload, headers=headers
@@ -253,11 +257,11 @@ class _BaseEcos:
                     logger.debug(await response.text())
                     body = await response.json()
             except aiohttp.ContentTypeError as err:
-                if response.status != 200:
+                if response and response.status != 200:
                     raise HttpError(response.status, await response.text()) from err
                 raise InvalidJsonError from err
             else:
-                if response.status != 200:
+                if response and response.status != 200:
                     error_msg = body.get(
                         "message", await response.text()
                     )  # return message from JSON if avalaible, or HTTP response text

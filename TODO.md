@@ -24,6 +24,26 @@ _Last updated: 2025-02-22_
 ## Addendum
 ### Uncovered endpoints
 
+
+#### /api/client/home/events
+
+Request: `POST /api/client/home/events/backup/list HTTP/1.1`
+`{"_t":1762198520906,"clientType":"BROWSER","clientVersion":"1.0","startTime":1761609600,"endTime":1762198520.882,"pageSize":20,"pageNum":1,"deviceId":"1234567890987654321"}`
+
+Output:
+``` json
+{
+    "code": 0,
+    "message": "success",
+    "success": true,
+    "data": {
+        "totalPages": 0,
+        "totalCount": 0,
+        "data": []
+    }
+}
+```
+
 #### /api/client/v2/home/device/energy
 
 Request: `https://api-ecos-eu.weiheng-tech.com/api/client/v2/home/device/energy?homeId=1234567890987654321`

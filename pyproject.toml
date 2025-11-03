@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ecactus-ecos-py"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
     "requests >= 2.32.3",
     "aiohttp >= 3.10.10",

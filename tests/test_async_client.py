@@ -221,6 +221,19 @@ async def test_get_insight(client, bad_client):
     assert len(insight.energy_timeseries.metrics) > 1
 
 
+async def test_get_fault_events(client, bad_client):
+    """Test get fault events."""
+    end = datetime.now()
+    start = end - timedelta(days=7)
+    with pytest.raises(UnauthorizedError):
+        await bad_client.get_fault_events(device_id=0, start_date=start, end_date=end)
+    with pytest.raises(UnauthorizedDeviceError):
+        await client.get_fault_events(device_id=0, start_date=start, end_date=end)
+    events = await client.get_fault_events(
+        device_id=1234567890123456789, start_date=start, end_date=end
+    )
+    assert len(events) > 0
+
 
 # TODO test 404
 # TODO test bad method (ex GET in place of POST)
