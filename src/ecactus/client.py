@@ -56,7 +56,7 @@ class Ecos(_BaseEcos):
             self.email = email
         if password is not None:
             self.password = password
-        payload = {
+        payload: dict[str, Any] = {
             "_t": int(time.time()),
             "clientType": "BROWSER",
             "clientVersion": "1.0",
@@ -268,7 +268,7 @@ class Ecos(_BaseEcos):
             else:
                 raise ParameterVerificationFailedError(f"start_date is required for period_type {period_type}")
         else:
-            start_ts = int(start_date.timestamp()) if start_date is not None else 0
+            start_ts = int(start_date.timestamp())
         try:
             return EnergyHistory(**self._post(
                 "/api/client/home/history/home",
