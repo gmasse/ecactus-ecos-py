@@ -503,6 +503,59 @@ class EcosMockServer:
         # if request_payload.get("periodType") not in (0, 2):
         return EcosMockServer._not_implemented_response()
 
+    async def handle_get_fault_events(self, request: web.Request) -> web.Response:
+        """Mock the get fault events endpoint."""
+        if not self._is_authorized_request(request):
+            return EcosMockServer._unauthorized_response()
+        request_payload = await request.json()
+        logger.debug(request_payload)
+        if str(request_payload.get("deviceId")) != "1234567890123456789":
+            return EcosMockServer._response(
+                code=20424,
+                message="unauthorized device",
+                success=False,
+                http_status=401,
+            )
+        if not request_payload.get("start") or not request_payload.get("end"):
+            return EcosMockServer._response(
+                code=20000,
+                message="cannot be null",
+                success=False,
+                http_status=200,
+            )
+        page_size = request_payload.get("pageSize", 10)
+        page_num = max(request_payload.get("pageNum", 1), 1)
+
+        # Event catalog
+        event_catalog = [
+            {"errorCode":"event_0","eventType":"event","eventTypeInt":0,"eventContentEn":"Waiting for Grid","eventContentCn":"等待电网模式","eventAction":None},
+            {"errorCode":"dsp_10","eventType":"fault","eventTypeInt":2,"eventContentEn":"Grid Off Fault","eventContentCn":"无市电","eventAction":None},
+            {"errorCode":"dsp_11","eventType":"fault","eventTypeInt":2,"eventContentEn":"Grid Voltage Undertrip/Overtrip Fault","eventContentCn":"电网电压故障","eventAction":None},
+            {"errorCode":"event_5","eventType":"event","eventTypeInt":0,"eventContentEn":"Checking","eventContentCn":"进入自检模式","eventAction":None},
+            {"errorCode":"event_1","eventType":"event","eventTypeInt":0,"eventContentEn":"Grid Connected","eventContentCn":"进入并网模式","eventAction":None}
+        ]
+        # Generate some fake events within the date range
+        start_date = datetime.fromtimestamp(request_payload.get("start"))
+        end_date = datetime.fromtimestamp(request_payload.get("end"))
+        delta = end_date - start_date
+        fake_events: list[JSON] = []
+        current_date = start_date
+        while current_date < end_date:
+            random_event = random.choice(event_catalog)
+            random_event["occurrenceTime"] = current_date.strftime("%Y-%m-%d %H:%M:%S")
+            fake_events.append(random_event)
+            current_date += delta / 20  # create 20 events evenly spaced
+        # slicing for pagination
+        start_index = (page_num - 1) * page_size
+        end_index = start_index + page_size
+        return EcosMockServer._success_response(
+            data={
+                "totalCount": len(fake_events),
+                "totalPages": (len(fake_events) + page_size - 1) // page_size,
+                "data": fake_events[start_index:end_index],
+            }
+        )
+
     async def catch_all(self, request: web.Request) -> web.Response:
         """Catch all endpoint."""
         # if request.path starts with /api/client/ then
@@ -552,6 +605,10 @@ class EcosMockServer:
                 web.post(
                     "/api/client/v2/device/three/device/insight",
                     self.handle_get_insight,
+                ),
+                web.post(
+                    "/api/client/home/events/fault",
+                    self.handle_get_fault_events,
                 ),
                 web.route("*", "/+{path:.*}", self.catch_all),
             ]

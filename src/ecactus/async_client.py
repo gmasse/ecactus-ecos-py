@@ -3,6 +3,7 @@
 from datetime import datetime
 import logging
 import time
+from typing import Any
 
 from .base import _BaseEcos
 from .exceptions import (
@@ -17,6 +18,7 @@ from .model import (
     Device,
     DeviceInsight,
     EnergyHistory,
+    Event,
     Home,
     PowerMetrics,
     PowerTimeSeries,
@@ -54,7 +56,7 @@ class AsyncEcos(_BaseEcos):
             self.email = email
         if password is not None:
             self.password = password
-        payload = {
+        payload: dict[str, Any] = {
             "_t": int(time.time()),
             "clientType": "BROWSER",
             "clientVersion": "1.0",
@@ -266,7 +268,7 @@ class AsyncEcos(_BaseEcos):
             else:
                 raise ParameterVerificationFailedError(f"start_date is required for period_type {period_type}")
         else:
-            start_ts = int(start_date.timestamp()) if start_date is not None else 0
+            start_ts = int(start_date.timestamp())
         try:
             return EnergyHistory(**await self._async_post(
                 "/api/client/home/history/home",
@@ -333,3 +335,44 @@ class AsyncEcos(_BaseEcos):
             if err.code == 20404:
                 raise ParameterVerificationFailedError from err
             raise
+
+    async def get_fault_events(self, device_id: str, start_date: datetime, end_date: datetime) -> list[Event]:
+        """Get fault events for a device.
+
+        Args:
+            device_id: The device ID to get events for.
+            start_date: The start date.
+            end_date: The end date.
+
+        Returns:
+            A list of events.
+
+        Raises:
+            UnauthorizedDeviceError: If the device is not authorized or unknown.
+            UnauthorizedError: If the Authorization token is not valid.
+            ApiResponseError: If the API returns a non-successful response.
+
+        """
+        logger.info("Get events for device %s", device_id)
+        start_ts = int(start_date.timestamp())
+        end_ts = int(end_date.timestamp())
+        try:
+            output: dict[str, Any] = await self._async_post(
+                "/api/client/home/events/fault",
+                payload={
+                    "deviceId": device_id,
+                    "start": start_ts,
+                    "end": end_ts,
+                    "pageSize": 1000000, # large number to get all events in one call
+                    "pageNum": 0,
+                },
+            )
+        except ApiResponseError as err:
+            if err.code == 20424:
+                raise UnauthorizedDeviceError(device_id) from err
+            raise
+        return [
+            Event(**event_data)
+            for event_data in output.get("data", [])
+        ]
+
