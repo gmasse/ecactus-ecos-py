@@ -250,7 +250,7 @@ class PowerTimeSeries(BaseModel):
 
     """
 
-    metrics: list[PowerMetrics] = Field(default_factory=list) # if instance is created without explicitly providing data, a new, independent empty list is generated as the default
+    metrics: Annotated[list[PowerMetrics], Field(default_factory=list)] # if instance is created without explicitly providing data, a new, independent empty list is generated as the default
 
     @model_validator(mode="before")
     @classmethod
@@ -279,7 +279,7 @@ class PowerTimeSeries(BaseModel):
 
         # Assume all dicts have identical timestamp keys
         timestamps = sorted(home.keys(), key=lambda ts: int(ts))
-        data_points = []
+        data_points: list[dict[str, Any]] = []
         for ts in timestamps:
             ts_dt = datetime.fromtimestamp(int(ts))
             data_points.append({
@@ -511,7 +511,7 @@ class ConsumptionTimeSeries(BaseModel):
 
     """
 
-    metrics: list[ConsumptionMetrics] = Field(default_factory=list) # if instance is created without explicitly providing data, a new, independent empty list is generated as the default
+    metrics: Annotated[list[ConsumptionMetrics], Field(default_factory=list)] # if instance is created without explicitly providing data, a new, independent empty list is generated as the default
 
     @model_validator(mode="before")
     @classmethod
@@ -542,7 +542,7 @@ class ConsumptionTimeSeries(BaseModel):
 
         # Assume all dicts have identical timestamp keys
         timestamps = sorted(home.keys(), key=lambda ts: int(ts))
-        data_points = []
+        data_points: list[dict[str, Any]] = []
         for ts in timestamps:
             ts_dt = datetime.fromtimestamp(int(ts))
             data_points.append({
