@@ -586,7 +586,7 @@ class EventType(BaseModel):
         code: The event code (e.g., "event_0", "dsp_10").
         type: The type string ("event", "fault").
         type_id: The type integer (0=event, 2=fault).
-        message: English description of the event.
+        description: English description of the event.
 
     """
 
@@ -627,7 +627,21 @@ class EventType(BaseModel):
 
     @classmethod
     def from_raw(cls, data: dict[str, Any]) -> "EventType":
-        """Build from raw data item, using catalog when known, else a generic fallback."""
+        """Build from ECOS API raw data item, using catalog when known, else a generic fallback.
+
+        Example:
+            ``` py
+            event_type = model.EventType.from_raw(
+                {
+                    "errorCode": "event_0",
+                    "eventType": "event",
+                    "eventTypeInt": 0,
+                    "eventContentEn": "Waiting for Grid",
+                }
+            )
+            ```
+
+        """
         code = data.get("errorCode") or ""
         # Try catalog first
         known_event_type = cls.from_code(code) if code else None

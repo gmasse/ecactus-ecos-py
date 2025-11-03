@@ -347,6 +347,11 @@ class Ecos(_BaseEcos):
         Returns:
             A list of events.
 
+        Raises:
+            UnauthorizedDeviceError: If the device is not authorized or unknown.
+            UnauthorizedError: If the Authorization token is not valid.
+            ApiResponseError: If the API returns a non-successful response.
+
         """
         logger.info("Get events for device %s", device_id)
         start_ts = int(start_date.timestamp())
