@@ -95,13 +95,15 @@ class _BaseEcos:
         api_path = api_path.lstrip("/")  # remove / from beginning of api_path
         full_url = self.url + "/" + api_path
         logger.debug("API GET call: %s", full_url)
+        headers = (
+            {"Authorization": self.access_token}
+            if self.access_token is not None
+            else None
+        )
         response = None
         try:
             response = requests.get(
-                full_url,
-                params=payload,
-                headers={"Authorization": self.access_token},
-                timeout=self.timeout,
+                full_url, params=payload, headers=headers, timeout=self.timeout
             )
             logger.debug(response.text)
             body = response.json()
@@ -146,13 +148,15 @@ class _BaseEcos:
         api_path = api_path.lstrip("/")  # remove / from beginning of api_path
         full_url = self.url + "/" + api_path
         logger.debug("API POST call: %s", full_url)
+        headers = (
+            {"Authorization": self.access_token}
+            if self.access_token is not None
+            else None
+        )
         response = None
         try:
             response = requests.post(
-                full_url,
-                json=payload,
-                headers={"Authorization": self.access_token},
-                timeout=self.timeout,
+                full_url, json=payload, headers=headers, timeout=self.timeout
             )
             logger.debug(response.text)
             body = response.json()
