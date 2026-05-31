@@ -116,15 +116,15 @@ class _BaseEcos:
                 error_msg = body.get(
                     "message", response.text
                 )  # return message from JSON if avalaible, or HTTP response text
-                if body["code"] == 401:
+                if body.get("code") == 401:
                     raise UnauthorizedError(error_msg)
-                if body["code"] is not None:
-                    raise ApiResponseError(body["code"], error_msg)
+                if body.get("code") is not None:
+                    raise ApiResponseError(body.get("code"), error_msg)
                 raise HttpError(response.status_code, error_msg)
-            if not body["success"]:
+            if not body.get("success"):
                 logger.debug(body)
-                raise ApiResponseError(body["code"], body["message"])
-        return body["data"]
+                raise ApiResponseError(body.get("code"), body.get("message"))
+        return body.get("data")
 
     def _post(self, api_path: str, payload: JSON = {}) -> JSON:
         """Make a POST request to the ECOS API.
@@ -169,15 +169,15 @@ class _BaseEcos:
                 error_msg = body.get(
                     "message", response.text
                 )  # return message from JSON if avalaible, or HTTP response text
-                if body["code"] == 401:
+                if body.get("code") == 401:
                     raise UnauthorizedError(error_msg)
-                if body["code"] is not None:
-                    raise ApiResponseError(body["code"], error_msg)
+                if body.get("code") is not None:
+                    raise ApiResponseError(body.get("code"), error_msg)
                 raise HttpError(response.status_code, error_msg)
-            if not body["success"]:
+            if not body.get("success"):
                 logger.debug(body)
-                raise ApiResponseError(body["code"], body["message"])
-        return body["data"]
+                raise ApiResponseError(body.get("code"), body.get("message"))
+        return body.get("data")
 
     async def _async_get(self, api_path: str, payload: dict[str, Any] = {}) -> JSON:
         """Make a GET request to the ECOS API.
@@ -225,15 +225,15 @@ class _BaseEcos:
                     error_msg = body.get(
                         "message", await response.text()
                     )  # return message from JSON if avalaible, or HTTP response text
-                    if body["code"] == 401:
+                    if body.get("code") == 401:
                         raise UnauthorizedError(error_msg)
-                    if body["code"] is not None:
-                        raise ApiResponseError(body["code"], error_msg)
+                    if body.get("code") is not None:
+                        raise ApiResponseError(body.get("code"), error_msg)
                     raise HttpError(response.status, error_msg)
-                if not body["success"]:
+                if not body.get("success"):
                     logger.debug(body)
-                    raise ApiResponseError(body["code"], body["message"])
-        return body["data"]
+                    raise ApiResponseError(body.get("code"), body.get("message"))
+        return body.get("data")
 
     async def _async_post(self, api_path: str, payload: JSON = {}) -> JSON:
         """Make a POST request to the ECOS API.
@@ -281,12 +281,12 @@ class _BaseEcos:
                     error_msg = body.get(
                         "message", await response.text()
                     )  # return message from JSON if avalaible, or HTTP response text
-                    if body["code"] == 401:
+                    if body.get("code") == 401:
                         raise UnauthorizedError(error_msg)
-                    if body["code"] is not None:
-                        raise ApiResponseError(body["code"], error_msg)
+                    if body.get("code") is not None:
+                        raise ApiResponseError(body.get("code"), error_msg)
                     raise HttpError(response.status, error_msg)
-                if not body["success"]:
+                if not body.get("success"):
                     logger.debug(body)
-                    raise ApiResponseError(body["code"], body["message"])
-        return body["data"]
+                    raise ApiResponseError(body.get("code"), body.get("message"))
+        return body.get("data")

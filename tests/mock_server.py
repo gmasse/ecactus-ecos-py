@@ -561,6 +561,10 @@ class EcosMockServer:
         await asyncio.sleep(1.0)
         return self._success_response({"slept": True})
 
+    async def handle_malformed(self, request: web.Request) -> web.Response:
+        """Return HTTP 200 with valid JSON that lacks the expected envelope keys."""
+        return web.json_response({"foo": "bar"}, status=200)
+
     async def catch_all(self, request: web.Request) -> web.Response:
         """Catch all endpoint."""
         # if request.path starts with /api/client/ then
@@ -616,6 +620,7 @@ class EcosMockServer:
                     self.handle_get_fault_events,
                 ),
                 web.get("/slow", self.handle_slow),
+                web.get("/malformed", self.handle_malformed),
                 web.route("*", "/+{path:.*}", self.catch_all),
             ]
         )
