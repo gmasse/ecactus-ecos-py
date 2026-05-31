@@ -160,7 +160,7 @@ class PowerMetrics(BaseModel):
 
     """
 
-    timestamp: datetime = Field(default=datetime.now())
+    timestamp: datetime = Field(default_factory=datetime.now)
     solar: Annotated[float | None, Field(strict=True, ge=0, alias="solarPower")]
     grid: float | None = Field(alias="gridPower")
     battery: float | None = Field(alias="batteryPower")
@@ -471,7 +471,7 @@ class ConsumptionMetrics(BaseModel):
 
     """
 
-    timestamp: datetime = Field(default=datetime.now())
+    timestamp: datetime = Field(default_factory=datetime.now)
     from_battery: Annotated[float | None, Field(strict=True, ge=0, alias="fromBatteryDps")]
     to_battery: Annotated[float | None, Field(strict=True, ge=0, alias="toBatteryDps")]
     from_grid: Annotated[float | None, Field(strict=True, ge=0, alias="fromGridDps")]
