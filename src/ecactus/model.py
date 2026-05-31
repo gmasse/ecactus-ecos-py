@@ -161,11 +161,16 @@ class PowerMetrics(BaseModel):
     """
 
     timestamp: datetime = Field(default_factory=datetime.now)
-    solar: Annotated[float | None, Field(strict=True, ge=0, alias="solarPower")]
+    # No ge=0 constraint: the live API legitimately returns small negative
+    # readings (measurement noise around zero, e.g. homePower=-2.0). Rejecting
+    # them raised a ValidationError that discarded the entire surrounding
+    # payload (a whole DeviceInsight / PowerTimeSeries), so a single noisy field
+    # lost otherwise-valid data. strict=True is kept to avoid silent coercion.
+    solar: Annotated[float | None, Field(strict=True, alias="solarPower")]
     grid: float | None = Field(alias="gridPower")
     battery: float | None = Field(alias="batteryPower")
     meter: float | None = Field(alias="meterPower")
-    home: Annotated[float | None, Field(strict=True, ge=0, alias="homePower")]
+    home: Annotated[float | None, Field(strict=True, alias="homePower")]
     eps: float | None = Field(alias="epsPower")
     charge: float | None = Field(alias="chargePower", default=None)
 
