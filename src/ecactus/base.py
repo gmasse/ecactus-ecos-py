@@ -29,6 +29,7 @@ class _BaseEcos:
         url: str | None = None,
         access_token: str | None = None,
         refresh_token: str | None = None,
+        timeout: float | None = 30.0,
     ) -> None:
         """Initialize a session with ECOS API.
 
@@ -41,6 +42,8 @@ class _BaseEcos:
             url: The URL of the ECOS API. If specified, `datacenter` is ignored.
             access_token: The access token for authentication with the ECOS API.
             refresh_token: The refresh token for authentication with the ECOS API.
+            timeout: Per-request timeout in seconds (total). Applied to every HTTP
+                call. `None` disables the timeout. Defaults to 30 seconds.
 
         Raises:
             InitializationError: If `datacenter` is not one of `CN`, `EU`, or `AU` and `url` is not provided.
@@ -52,6 +55,7 @@ class _BaseEcos:
         self.country = country
         self.access_token = access_token
         self.refresh_token = refresh_token
+        self.timeout = timeout
         # TODO: get datacenters from https://dcdn-config.weiheng-tech.com/prod/config.json
         datacenters = {
             "CN": "https://api-ecos-hu.weiheng-tech.com",
@@ -98,7 +102,9 @@ class _BaseEcos:
         )
         response = None
         try:
-            response = requests.get(full_url, params=payload, headers=headers)
+            response = requests.get(
+                full_url, params=payload, headers=headers, timeout=self.timeout
+            )
             logger.debug(response.text)
             body = response.json()
         except requests.exceptions.JSONDecodeError as err:
@@ -149,7 +155,9 @@ class _BaseEcos:
         )
         response = None
         try:
-            response = requests.post(full_url, json=payload, headers=headers)
+            response = requests.post(
+                full_url, json=payload, headers=headers, timeout=self.timeout
+            )
             logger.debug(response.text)
             body = response.json()
         except requests.exceptions.JSONDecodeError as err:
@@ -199,7 +207,8 @@ class _BaseEcos:
             if self.access_token is not None
             else None
         )
-        async with aiohttp.ClientSession() as session:
+        timeout = aiohttp.ClientTimeout(total=self.timeout)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
             response = None
             try:
                 async with session.get(
@@ -254,7 +263,8 @@ class _BaseEcos:
             if self.access_token is not None
             else None
         )
-        async with aiohttp.ClientSession() as session:
+        timeout = aiohttp.ClientTimeout(total=self.timeout)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
             response = None
             try:
                 async with session.post(

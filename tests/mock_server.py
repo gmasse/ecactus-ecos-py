@@ -556,6 +556,11 @@ class EcosMockServer:
             }
         )
 
+    async def handle_slow(self, request: web.Request) -> web.Response:
+        """Endpoint that delays before responding (used to test request timeouts)."""
+        await asyncio.sleep(1.0)
+        return self._success_response({"slept": True})
+
     async def catch_all(self, request: web.Request) -> web.Response:
         """Catch all endpoint."""
         # if request.path starts with /api/client/ then
@@ -610,6 +615,7 @@ class EcosMockServer:
                     "/api/client/home/events/fault",
                     self.handle_get_fault_events,
                 ),
+                web.get("/slow", self.handle_slow),
                 web.route("*", "/+{path:.*}", self.catch_all),
             ]
         )
