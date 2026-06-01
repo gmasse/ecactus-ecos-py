@@ -7,6 +7,7 @@ import pytest
 from ecactus.model import (
     ConsumptionMetrics,
     ConsumptionTimeSeries,
+    DeviceInsight,
     EnergyHistory,
     Event,
     EventType,
