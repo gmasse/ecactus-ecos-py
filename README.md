@@ -81,6 +81,8 @@ python -m pip install '.[dev]'
 
 We invite you to contribute to the project by opening an issue or pull request to propose new features, fix bugs, or enhance the documentation.
 
+**Pull requests should target the `dev` branch** — `main` is reserved for releases. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contribution workflow.
+
 For pending tasks and improvements, please check the [TODO.md](TODO.md) file.
 
 ### Automatic Synchronous Code Generation
