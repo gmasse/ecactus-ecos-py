@@ -57,3 +57,24 @@ mkdocs serve
 ```
 
 See [README.md](README.md) for more development details and [TODO.md](TODO.md) for pending tasks.
+
+## Releasing
+
+Maintainers only.
+
+1. Bump `version` in `pyproject.toml` on `dev` and refresh the lockfile (`uv lock`).
+2. Open a `dev` -> `main` pull request titled `Release X.Y.Z` and squash-merge it.
+3. Tag the merge commit and push the tag:
+
+   ```bash
+   git tag -a vX.Y.Z -m "Release X.Y.Z"
+   git push origin vX.Y.Z
+   ```
+
+4. Publish the GitHub release for that tag.
+
+Publishing the release triggers [`publish.yml`](.github/workflows/publish.yml),
+which builds the distributions and uploads them to PyPI through [trusted
+publishing](https://docs.pypi.org/trusted-publishers/). There is no API token to
+manage: PyPI verifies the workflow's OIDC identity and issues a short-lived
+upload credential.
