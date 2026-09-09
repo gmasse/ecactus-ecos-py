@@ -475,7 +475,7 @@ toml = [
 
 [[package]]
 name = "ecactus-ecos-py"
-version = "0.4.0"
+version = "0.4.1"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
