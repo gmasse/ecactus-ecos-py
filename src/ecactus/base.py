@@ -11,6 +11,10 @@ from .exceptions import (
     UnauthorizedError,
 )
 
+# `requests` and `aiohttp` are imported lazily in the methods below: both HTTP
+# implementations share this class, so a caller using only the synchronous mode
+# never pays the import cost of `aiohttp`, and vice versa.
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
@@ -90,7 +94,7 @@ class _BaseEcos:
             InvalidJsonError: If the API returns an invalid JSON.
 
         """
-        import requests
+        import requests  # noqa: PLC0415
 
         api_path = api_path.lstrip("/")  # remove / from beginning of api_path
         full_url = self.url + "/" + api_path
@@ -143,7 +147,7 @@ class _BaseEcos:
             InvalidJsonError: If the API returns an invalid JSON.
 
         """
-        import requests
+        import requests  # noqa: PLC0415
 
         api_path = api_path.lstrip("/")  # remove / from beginning of api_path
         full_url = self.url + "/" + api_path
@@ -196,7 +200,7 @@ class _BaseEcos:
             InvalidJsonError: If the API returns an invalid JSON.
 
         """
-        import aiohttp
+        import aiohttp  # noqa: PLC0415
 
         api_path = api_path.lstrip("/")  # remove / from beginning of api_path
         full_url = self.url + "/" + api_path
@@ -252,7 +256,7 @@ class _BaseEcos:
             InvalidJsonError: If the API returns an invalid JSON.
 
         """
-        import aiohttp
+        import aiohttp  # noqa: PLC0415
 
         api_path = api_path.lstrip("/")  # remove / from beginning of api_path
         full_url = self.url + "/" + api_path

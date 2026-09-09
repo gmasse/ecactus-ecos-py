@@ -1,5 +1,11 @@
 """Common to all tests."""
 
+import asyncio
+import contextlib
+import socket
+import threading
+
+from aiohttp import web
 import pytest
 from pytest_asyncio import is_async_test
 
@@ -22,10 +28,6 @@ def pytest_collection_modifyitems(items) -> None:
 
 def run_server(runner, host="127.0.0.1", port=8080):
     """Run the server."""
-    import asyncio
-
-    from aiohttp import web
-
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     loop.run_until_complete(runner.setup())
@@ -39,12 +41,6 @@ def mock_server():
     """Start a mock server in a thread and return it."""
     localhost = "127.0.0.1"
     # Find an unused localhost port from 1024-65535 and return it.
-    import contextlib
-    import socket
-    import threading
-
-    from aiohttp import web
-
     with contextlib.closing(socket.socket(type=socket.SOCK_STREAM)) as sock:
         sock.bind((localhost, 0))
         unused_tcp_port = sock.getsockname()[1]
