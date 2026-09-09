@@ -284,7 +284,7 @@ class PowerTimeSeries(BaseModel):
         eps = data.get("epsPowerDps", {})
 
         # Assume all dicts have identical timestamp keys
-        timestamps = sorted(home.keys(), key=lambda ts: int(ts))
+        timestamps = sorted(home.keys(), key=int)
         data_points: list[dict[str, Any]] = []
         for ts in timestamps:
             ts_dt = datetime.fromtimestamp(int(ts))
@@ -422,7 +422,7 @@ class EnergyHistory(BaseModel):
 
         """
         home = data.get("homeEnergyDps", {})
-        timestamps = sorted(home.keys(), key=lambda ts: int(ts))
+        timestamps = sorted(home.keys(), key=int)
         data_points: list[dict[str, Any]] = []
         for ts in timestamps:
             ts_dt = datetime.fromtimestamp(int(ts))
@@ -547,7 +547,7 @@ class ConsumptionTimeSeries(BaseModel):
 
 
         # Assume all dicts have identical timestamp keys
-        timestamps = sorted(home.keys(), key=lambda ts: int(ts))
+        timestamps = sorted(home.keys(), key=int)
         data_points: list[dict[str, Any]] = []
         for ts in timestamps:
             ts_dt = datetime.fromtimestamp(int(ts))
@@ -688,9 +688,9 @@ class Event(BaseModel):
         Uses catalog lookup; if not found, builds a generic EventType from API fields.
         """
         if isinstance(data, dict) and "errorCode" in data:
-            typed_data = cast(dict[str, Any], data)
+            typed_data = cast("dict[str, Any]", data)
             return {
                 "event_type": EventType.from_raw(typed_data),
                 "occurrenceTime": typed_data.get("occurrenceTime"),
             }
-        return cast(dict[str, Any], data)
+        return cast("dict[str, Any]", data)
