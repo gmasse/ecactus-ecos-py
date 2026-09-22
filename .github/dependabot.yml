@@ -1,0 +1,16 @@
+version: 2
+updates:
+  # The uv ecosystem resolves pyproject.toml pins and uv.lock together.
+  # The pip ecosystem would bump pyproject.toml and leave uv.lock stale.
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      dev-dependencies:
+        dependency-type: "development"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
