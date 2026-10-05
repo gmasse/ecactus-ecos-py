@@ -20,7 +20,8 @@ git clone https://github.com/gmasse/ecactus-ecos-py.git
 cd ecactus-ecos-py
 python -m venv venv
 source venv/bin/activate
-python -m pip install '.[dev]'
+python -m pip install --upgrade pip   # dependency groups need pip >= 25.1
+python -m pip install . --group dev
 ```
 
 The project supports Python **3.11 through 3.14**.
