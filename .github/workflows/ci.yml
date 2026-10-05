@@ -31,7 +31,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install '.[dev]'
+          pip install . --group dev
       - name: Check generated sync client is up to date
         run: python scripts/unasync.py --check
       - name: Lint with ruff
@@ -63,6 +63,6 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install '.[dev]'
+          pip install . --group dev
       - name: Test with pytest
         run: pytest

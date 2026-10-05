@@ -31,7 +31,7 @@ Homepage = "https://github.com/gmasse/ecactus-ecos-py"
 Documentation = "https://g.masse.me/ecactus-ecos-py/"
 Repository = "https://github.com/gmasse/ecactus-ecos-py.git"
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "ruff==0.16.10",
     "mypy==2.4.0",
