@@ -4,6 +4,9 @@ updates:
   # The pip ecosystem would bump pyproject.toml and leave uv.lock stale.
   - package-ecosystem: "uv"
     directory: "/"
+    # Version updates wait in dev for the next release; security updates
+    # ignore this and always target main.
+    target-branch: "dev"
     schedule:
       interval: "weekly"
     groups:
@@ -12,5 +15,6 @@ updates:
 
   - package-ecosystem: "github-actions"
     directory: "/"
+    target-branch: "dev"
     schedule:
       interval: "weekly"
