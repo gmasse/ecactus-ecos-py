@@ -4,13 +4,24 @@ updates:
   # The pip ecosystem would bump pyproject.toml and leave uv.lock stale.
   - package-ecosystem: "uv"
     directory: "/"
+    # Version updates wait in dev for the next release; security updates
+    # ignore this and always target main.
+    target-branch: "dev"
     schedule:
       interval: "weekly"
     groups:
+      # The tooling lives in the `dev` extra, which Dependabot counts as
+      # production, so `dependency-type: "development"` would match nothing.
       dev-dependencies:
-        dependency-type: "development"
+        patterns:
+          - "ruff"
+          - "mypy"
+          - "pytest*"
+          - "mkdocs*"
+          - "python-dateutil"
 
   - package-ecosystem: "github-actions"
     directory: "/"
+    target-branch: "dev"
     schedule:
       interval: "weekly"
