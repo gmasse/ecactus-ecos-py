@@ -10,15 +10,8 @@ updates:
     schedule:
       interval: "weekly"
     groups:
-      # The tooling lives in the `dev` extra, which Dependabot counts as
-      # production, so `dependency-type: "development"` would match nothing.
       dev-dependencies:
-        patterns:
-          - "ruff"
-          - "mypy"
-          - "pytest*"
-          - "mkdocs*"
-          - "python-dateutil"
+        dependency-type: "development"
 
   - package-ecosystem: "github-actions"
     directory: "/"
