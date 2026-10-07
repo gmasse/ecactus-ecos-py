@@ -5,7 +5,8 @@ Thanks for your interest in improving the eCactus ECOS Python client! Contributi
 ## Branching and pull requests
 
 - **Target the `dev` branch.** Create your branch from `dev` and open pull requests against `dev`.
-- **`main` is release-only.** It is updated only when cutting a release; please do not open feature or fix PRs against it.
+- **`main` only receives releases and maintainer hotfixes.** Please do not open feature or fix PRs against it.
+- **Pull requests are squash-merged.** The PR title becomes the commit subject on `dev`, so please write it as a [Conventional Commit](https://www.conventionalcommits.org/en/v1.0.0/) (`fix: ...`, `feat(client): ...`).
 
 ```bash
 git checkout dev
@@ -64,7 +65,16 @@ See [README.md](README.md) for more development details and [TODO.md](TODO.md) f
 Maintainers only.
 
 1. Bump `version` in `pyproject.toml` on `dev` and refresh the lockfile (`uv lock`).
-2. Open a `dev` -> `main` pull request titled `Release X.Y.Z` and squash-merge it.
+2. Open a `dev` -> `main` pull request titled `chore(release): X.Y.Z` and merge it with a
+   merge commit, never a squash or a rebase. Pass the subject explicitly, since GitHub's
+   default is `Merge pull request #N from ...`:
+
+   ```bash
+   gh pr merge N --merge --subject "chore(release): X.Y.Z (#N)" --body "One line per highlight."
+   ```
+
+   The merge commit keeps `dev` an ancestor of `main`, so the next release only carries
+   new work and `dev` needs no syncing afterwards.
 3. Tag the merge commit and push the tag:
 
    ```bash
@@ -79,3 +89,23 @@ which builds the distributions and uploads them to PyPI through [trusted
 publishing](https://docs.pypi.org/trusted-publishers/). There is no API token to
 manage: PyPI verifies the workflow's OIDC identity and issues a short-lived
 upload credential.
+
+## Hotfixes
+
+Maintainers only.
+
+An urgent fix can go straight to `main`. Dependabot security updates always do, since
+they ignore the `target-branch: dev` setting. Squash-merge the pull request into `main`,
+then merge `main` back into `dev` right away so that `dev` keeps everything `main` has:
+
+```bash
+git switch main && git pull --ff-only
+git switch dev && git pull --ff-only
+git merge main
+git push
+```
+
+To publish a code fix, bump `version` in the same pull request, then tag `main` and publish
+the release as in steps 3 and 4 above.
+
+Never rebase or force-push `main` or `dev`: contributors' clones and forks track them.
