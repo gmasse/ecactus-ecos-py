@@ -1,5 +1,7 @@
 [build-system]
-requires = ["setuptools >= 75.1"]
+# Exact pin: the published wheel is built by this backend, so a new release of it
+# should arrive through a reviewed update, not at release time.
+requires = ["setuptools==84.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -42,7 +44,8 @@ dev = [
     "mkdocs-material == 9.7.7",
     "mkdocstrings==1.0.7",
     "mkdocstrings-python == 2.0.9",
-    "python-dateutil == 2.9.0.post0"
+    "python-dateutil == 2.9.0.post0",
+    "pip-audit==2.10.1"
 ]
 
 [tool.pytest.ini_options]
