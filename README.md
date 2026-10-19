@@ -25,8 +25,8 @@ pip install ecactus-ecos-py
 from ecactus import Ecos
 
 # Initialize the client
-session = Ecos(datacenter='EU')
-session.login('email@domain.com', 'mypassword')
+session = Ecos(datacenter="EU")
+session.login("email@domain.com", "mypassword")
 
 # Fetch user details
 user = session.get_user()
@@ -43,10 +43,11 @@ print(devices)
 import asyncio
 from ecactus import AsyncEcos
 
+
 async def main():
     # Initialize the client
-    session = AsyncEcos(datacenter='EU')
-    await session.login('email@domain.com', 'mypassword')
+    session = AsyncEcos(datacenter="EU")
+    await session.login("email@domain.com", "mypassword")
 
     # Fetch user details
     user = await session.get_user()
@@ -55,6 +56,7 @@ async def main():
     # Retrieve all the devices
     devices = await session.get_all_devices()
     print(devices)
+
 
 asyncio.run(main())
 ```
@@ -70,13 +72,11 @@ The API references for both `Ecos` and `AsyncEcos` clients, is available at:
 
 ## Development & Contributing
 
-To set up the project for development, clone the repository and install dependencies:
+To set up the project for development, install [uv](https://docs.astral.sh/uv/), then clone the repository and install dependencies:
 ```
 git clone https://github.com/gmasse/ecactus-ecos-py.git
 cd ecactus-ecos-py
-python -m venv venv
-source venv/bin/activate
-python -m pip install '.[dev]'
+uv sync   # creates .venv from uv.lock, dev tools included
 ```
 
 We invite you to contribute to the project by opening an issue or pull request to propose new features, fix bugs, or enhance the documentation.
@@ -89,14 +89,14 @@ For pending tasks and improvements, please check the [TODO.md](TODO.md) file.
 
 The `ecactus.Ecos` synchronous class, defined in [src/ecactus/client.py](src/ecactus/client.py), is **automatically generated** from the `ecactus.AsyncEcos` class using [scripts/unasync.py](scripts/unasync.py). When making changes to the `ecactus.AsyncEcos` class, you should re-run this script to regenerate the `ecactus.Ecos` class:
 ```
-python scripts/unasync.py
+uv run python scripts/unasync.py
 ```
 
 This ensures that both the synchronous and asynchronous APIs remain consistent.
 
 To verify that the generated synchronous class matches the asynchronous class, use the `--check` option:
 ```
-python scripts/unasync.py --check
+uv run python scripts/unasync.py --check
 ```
 This will report any differences between the two classes, allowing you to catch any inconsistencies before submitting your changes.
 
@@ -104,22 +104,26 @@ This will report any differences between the two classes, allowing you to catch 
 
 - **Linting**: Run `ruff` to check for code style issues:
   ```bash
-  ruff check
+  uv run ruff check
+  ```
+- **Formatting**: Run `ruff format` to apply the code style (CI runs `ruff format --check`):
+  ```bash
+  uv run ruff format
   ```
 - **Typing Checks**: Use `mypy` to ensure type correctness:
   ```bash
-  mypy
+  uv run mypy
   ```
 - **Unit Tests**: Run `pytest` to execute tests:
   ```bash
-  pytest
+  uv run pytest
   ```
 
 ### Documentation Contribution
 
 Use mkdocs to serve a local preview of the documentation:
 ```
-mkdocs serve
+uv run mkdocs serve
 ```
 
 ## License

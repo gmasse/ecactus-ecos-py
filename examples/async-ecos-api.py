@@ -69,22 +69,24 @@ async def main() -> None:
 
     for home in homes:
         if home.device_number > 0:
-
-            #print(await session.get_realtime_home_data(home.id))  # noqa: T201
+            # print(await session.get_realtime_home_data(home.id))  # noqa: T201
 
             devices = await session.get_devices(home.id)
-            #print(devices)  # noqa: T201
+            # print(devices)  # noqa: T201
             for device in devices:
-                print(device) # noqa: T201
-                #print(await session.get_today_device_data(device.id))  # noqa: T201
-                #print(await session.get_history(device.id, period_type=1))  # noqa: T201
-                print(await session.get_insight(device.id, period_type=5, start_date=start_date))  # noqa: T201
-                #events = await session.get_fault_events(device.id, start_date=start_date, end_date=end_date)
-                #for event in events:
+                print(device)  # noqa: T201
+                # print(await session.get_today_device_data(device.id))  # noqa: T201
+                # print(await session.get_history(device.id, period_type=1))  # noqa: T201
+                print(  # noqa: T201
+                    await session.get_insight(
+                        device.id, period_type=5, start_date=start_date
+                    )
+                )
+                # events = await session.get_fault_events(device.id, start_date=start_date, end_date=end_date)
+                # for event in events:
                 #    print(f"{event.occurrence_time}, {event.event_type.code}, {event.event_type.type}, {event.event_type.type_id}, {event.event_type.description}")  # noqa: T201
 
-    #print(await session.get_all_devices())  # noqa: T201
-
+    # print(await session.get_all_devices())  # noqa: T201
 
 
 if __name__ == "__main__":
