@@ -16,13 +16,12 @@ git checkout -b my-feature   # or fix/my-bug
 
 ## Development setup
 
+Development uses [uv](https://docs.astral.sh/uv/).
+
 ```bash
 git clone https://github.com/gmasse/ecactus-ecos-py.git
 cd ecactus-ecos-py
-python -m venv venv
-source venv/bin/activate
-python -m pip install --upgrade pip   # dependency groups need pip >= 25.1
-python -m pip install . --group dev
+uv sync   # creates .venv from uv.lock, dev tools included
 ```
 
 The project supports Python **3.11 through 3.14**.
@@ -32,11 +31,11 @@ The project supports Python **3.11 through 3.14**.
 Run the same checks CI runs:
 
 ```bash
-ruff check                        # linting
-ruff format --check               # formatting
-mypy                              # type checking
-pytest                            # tests
-python scripts/unasync.py --check # sync client is in sync with the async one
+uv run ruff check                        # linting
+uv run ruff format --check               # formatting
+uv run mypy                              # type checking
+uv run pytest                            # tests
+uv run python scripts/unasync.py --check # sync client is in sync with the async one
 ```
 
 ### Keeping the sync client in sync
@@ -46,17 +45,17 @@ from the asynchronous `ecactus.AsyncEcos` class via [`scripts/unasync.py`](scrip
 If you change `AsyncEcos`, regenerate the sync client and commit the result:
 
 ```bash
-python scripts/unasync.py
+uv run python scripts/unasync.py
 ```
 
-CI runs `python scripts/unasync.py --check` and will fail if the generated code is out of date.
+CI runs `uv run python scripts/unasync.py --check` and will fail if the generated code is out of date.
 
 ## Documentation
 
 Preview the documentation locally with:
 
 ```bash
-mkdocs serve
+uv run mkdocs serve
 ```
 
 See [README.md](README.md) for more development details and [TODO.md](TODO.md) for pending tasks.
