@@ -36,6 +36,8 @@ jobs:
         run: python scripts/unasync.py --check
       - name: Lint with ruff
         run: ruff check
+      - name: Check formatting with ruff
+        run: ruff format --check
       - name: Typing checks with mypy
         run: mypy
       - name: Test with pytest

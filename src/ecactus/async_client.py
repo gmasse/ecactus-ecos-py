@@ -177,9 +177,12 @@ class AsyncEcos(_BaseEcos):
         logger.info("Get current day data for device %s", device_id)
         await self._ensure_login()
         try:
-            return PowerTimeSeries(**await self._async_post(
-                "/api/client/home/now/device/realtime", payload={"deviceId": device_id}
-            ))
+            return PowerTimeSeries(
+                **await self._async_post(
+                    "/api/client/home/now/device/realtime",
+                    payload={"deviceId": device_id},
+                )
+            )
         except ApiResponseError as err:
             if err.code == 20424:
                 raise UnauthorizedDeviceError(device_id) from err
@@ -202,9 +205,11 @@ class AsyncEcos(_BaseEcos):
         """
         logger.info("Get realtime data for home %s", home_id)
         try:
-            return PowerMetrics(**await self._async_get(
-                "/api/client/v2/home/device/runData", payload={"homeId": home_id}
-            ))
+            return PowerMetrics(
+                **await self._async_get(
+                    "/api/client/v2/home/device/runData", payload={"homeId": home_id}
+                )
+            )
         except ApiResponseError as err:
             if err.code == 20450:
                 raise HomeDoesNotExistError(home_id) from err
@@ -227,9 +232,12 @@ class AsyncEcos(_BaseEcos):
         """
         logger.info("Get realtime data for device %s", device_id)
         try:
-            return PowerMetrics(**await self._async_post(
-                "/api/client/home/now/device/runData", payload={"deviceId": device_id}
-            ))
+            return PowerMetrics(
+                **await self._async_post(
+                    "/api/client/home/now/device/runData",
+                    payload={"deviceId": device_id},
+                )
+            )
         except ApiResponseError as err:
             if err.code == 20424:
                 raise UnauthorizedDeviceError(device_id) from err
@@ -266,18 +274,22 @@ class AsyncEcos(_BaseEcos):
             if period_type in (1, 2, 4):
                 start_ts = 0
             else:
-                raise ParameterVerificationFailedError(f"start_date is required for period_type {period_type}")
+                raise ParameterVerificationFailedError(
+                    f"start_date is required for period_type {period_type}"
+                )
         else:
             start_ts = int(start_date.timestamp())
         try:
-            return EnergyHistory(**await self._async_post(
-                "/api/client/home/history/home",
-                payload={
-                    "deviceId": device_id,
-                    "timestamp": start_ts,
-                    "periodType": period_type,
-                },
-            ))
+            return EnergyHistory(
+                **await self._async_post(
+                    "/api/client/home/history/home",
+                    payload={
+                        "deviceId": device_id,
+                        "timestamp": start_ts,
+                        "periodType": period_type,
+                    },
+                )
+            )
         except ApiResponseError as err:
             if err.code == 20424:
                 raise UnauthorizedDeviceError(device_id) from err
@@ -317,18 +329,22 @@ class AsyncEcos(_BaseEcos):
             if period_type == 5:
                 start_ts = 0
             else:
-                raise ParameterVerificationFailedError(f"start_date is required for period_type {period_type}")
+                raise ParameterVerificationFailedError(
+                    f"start_date is required for period_type {period_type}"
+                )
         else:
             start_ts = int(start_date.timestamp() * 1000)  # timestamp in milliseconds
         try:
-            return DeviceInsight(**await self._async_post(
-                "/api/client/v2/device/three/device/insight",
-                payload={
-                    "deviceId": device_id,
-                    "timestamp": start_ts,
-                    "periodType": period_type,
-                },
-            ))
+            return DeviceInsight(
+                **await self._async_post(
+                    "/api/client/v2/device/three/device/insight",
+                    payload={
+                        "deviceId": device_id,
+                        "timestamp": start_ts,
+                        "periodType": period_type,
+                    },
+                )
+            )
         except ApiResponseError as err:
             if err.code == 20424:
                 raise UnauthorizedDeviceError(device_id) from err
@@ -336,7 +352,9 @@ class AsyncEcos(_BaseEcos):
                 raise ParameterVerificationFailedError from err
             raise
 
-    async def get_fault_events(self, device_id: str, start_date: datetime, end_date: datetime) -> list[Event]:
+    async def get_fault_events(
+        self, device_id: str, start_date: datetime, end_date: datetime
+    ) -> list[Event]:
         """Get fault events for a device.
 
         Args:
@@ -363,7 +381,7 @@ class AsyncEcos(_BaseEcos):
                     "deviceId": device_id,
                     "start": start_ts,
                     "end": end_ts,
-                    "pageSize": 1000000, # large number to get all events in one call
+                    "pageSize": 1000000,  # large number to get all events in one call
                     "pageNum": 0,
                 },
             )
@@ -371,8 +389,4 @@ class AsyncEcos(_BaseEcos):
             if err.code == 20424:
                 raise UnauthorizedDeviceError(device_id) from err
             raise
-        return [
-            Event(**event_data)
-            for event_data in output.get("data", [])
-        ]
-
+        return [Event(**event_data) for event_data in output.get("data", [])]

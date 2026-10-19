@@ -25,8 +25,8 @@ pip install ecactus-ecos-py
 from ecactus import Ecos
 
 # Initialize the client
-session = Ecos(datacenter='EU')
-session.login('email@domain.com', 'mypassword')
+session = Ecos(datacenter="EU")
+session.login("email@domain.com", "mypassword")
 
 # Fetch user details
 user = session.get_user()
@@ -43,10 +43,11 @@ print(devices)
 import asyncio
 from ecactus import AsyncEcos
 
+
 async def main():
     # Initialize the client
-    session = AsyncEcos(datacenter='EU')
-    await session.login('email@domain.com', 'mypassword')
+    session = AsyncEcos(datacenter="EU")
+    await session.login("email@domain.com", "mypassword")
 
     # Fetch user details
     user = await session.get_user()
@@ -55,6 +56,7 @@ async def main():
     # Retrieve all the devices
     devices = await session.get_all_devices()
     print(devices)
+
 
 asyncio.run(main())
 ```
@@ -106,6 +108,10 @@ This will report any differences between the two classes, allowing you to catch 
 - **Linting**: Run `ruff` to check for code style issues:
   ```bash
   ruff check
+  ```
+- **Formatting**: Run `ruff format` to apply the code style (CI runs `ruff format --check`):
+  ```bash
+  ruff format
   ```
 - **Typing Checks**: Use `mypy` to ensure type correctness:
   ```bash
