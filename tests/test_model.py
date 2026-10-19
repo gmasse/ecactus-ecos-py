@@ -165,7 +165,10 @@ def test_find_by_timestamp_nearest():
 
 def test_find_by_timestamp_empty_series_returns_none():
     """Lookup on an empty series returns None."""
-    assert PowerTimeSeries().find_by_timestamp(_power_series().metrics[0].timestamp) is None
+    assert (
+        PowerTimeSeries().find_by_timestamp(_power_series().metrics[0].timestamp)
+        is None
+    )
 
 
 def test_find_between_is_inclusive():
@@ -242,7 +245,11 @@ def test_eventtype_from_code_unknown_returns_none():
 def test_eventtype_from_raw_uses_catalog():
     """from_raw prefers the catalog over the raw payload values."""
     et = EventType.from_raw({"errorCode": "event_0", "eventType": "ignored"})
-    assert (et.code, et.type, et.description) == ("event_0", "event", "Waiting for Grid")
+    assert (et.code, et.type, et.description) == (
+        "event_0",
+        "event",
+        "Waiting for Grid",
+    )
 
 
 def test_eventtype_from_raw_fallback_for_unknown_code():
@@ -265,7 +272,9 @@ def test_eventtype_from_raw_fallback_for_unknown_code():
 
 def test_eventtype_from_raw_fallback_defaults_description():
     """Missing description defaults to 'Unknown'."""
-    et = EventType.from_raw({"errorCode": "dsp_99", "eventType": "fault", "eventTypeInt": 2})
+    et = EventType.from_raw(
+        {"errorCode": "dsp_99", "eventType": "fault", "eventTypeInt": 2}
+    )
     assert et.description == "Unknown"
 
 

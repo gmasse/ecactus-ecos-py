@@ -36,7 +36,9 @@ class User(BaseModel):
     datacenter: str
     datacenter_host: str = Field(alias="datacenterHost")
 
-    model_config = ConfigDict(populate_by_name=True)  # Allows to populate by field name in the model attribute, as well as the aliases.
+    model_config = ConfigDict(
+        populate_by_name=True
+    )  # Allows to populate by field name in the model attribute, as well as the aliases.
 
 
 class Home(BaseModel):
@@ -58,16 +60,18 @@ class Home(BaseModel):
     id: str = Field(alias="homeId")
     name: str = Field(alias="homeName")
     type_int: int = Field(alias="homeType")
-    #TODO: type (based on an Enum)
+    # TODO: type (based on an Enum)
     longitude: float | None = None
     latitude: float | None = None
     device_number: int = Field(alias="homeDeviceNumber")
     relation_type_int: int = Field(alias="relationType")
-    #TODO: relation_type (based on an Enum)
+    # TODO: relation_type (based on an Enum)
     create_time: datetime = Field(alias="createTime")
     update_time: datetime = Field(alias="updateTime")
 
-    model_config = ConfigDict(populate_by_name=True)  # Allows to populate by field name in the model attribute, as well as the aliases.
+    model_config = ConfigDict(
+        populate_by_name=True
+    )  # Allows to populate by field name in the model attribute, as well as the aliases.
 
     @model_validator(mode="after")
     def _enforce_shared_device_name(self) -> Self:
@@ -98,19 +102,23 @@ class Device(BaseModel):
     id: str = Field(alias="deviceId")
     alias: str = Field(alias="deviceAliasName")
     state_int: int = Field(alias="state")
-    #TODO: state (based on an Enum)
+    # TODO: state (based on an Enum)
     vpp: bool
     type_int: int = Field(alias="type")
-    #TODO: type (based on an Enum)
+    # TODO: type (based on an Enum)
     serial: str = Field(alias="deviceSn")
     agent_id: str = Field(alias="agentId")
     longitude: float = Field(alias="lon")
     latitude: float = Field(alias="lat")
     device_type: str | None = Field(alias="deviceType")
     master_int: int = Field(alias="master")
-    #TODO: master (based on an Enum)
+    # TODO: master (based on an Enum)
 
-    model_config = ConfigDict(extra="allow", populate_by_name=True)  # Allows additional fields. Allows to populate by field name in the model attribute, as well as the aliases.
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True
+    )  # Allows additional fields. Allows to populate by field name in the model attribute, as well as the aliases.
+
+
 # Extra fields :
 # """
 #     Attributes:
@@ -174,7 +182,11 @@ class PowerMetrics(BaseModel):
     eps: float | None = Field(alias="epsPower")
     charge: float | None = Field(alias="chargePower", default=None)
 
-    model_config = ConfigDict(extra="allow", populate_by_name=True)  # Allows additional fields. Allows to populate by field name in the model attribute, as well as the aliases.
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True
+    )  # Allows additional fields. Allows to populate by field name in the model attribute, as well as the aliases.
+
+
 # Extra fields (returned by get_realtime_home_data):
 # "batterySocList": [
 #     {
@@ -256,7 +268,9 @@ class PowerTimeSeries(BaseModel):
 
     """
 
-    metrics: Annotated[list[PowerMetrics], Field(default_factory=list)] # if instance is created without explicitly providing data, a new, independent empty list is generated as the default
+    metrics: Annotated[
+        list[PowerMetrics], Field(default_factory=list)
+    ]  # if instance is created without explicitly providing data, a new, independent empty list is generated as the default
 
     @model_validator(mode="before")
     @classmethod
@@ -272,8 +286,8 @@ class PowerTimeSeries(BaseModel):
         """
 
         # no tranformation if input if already a list of metrics
-        if 'metrics' in data:
-            if all(isinstance(m, PowerMetrics) for m in data['metrics']):
+        if "metrics" in data:
+            if all(isinstance(m, PowerMetrics) for m in data["metrics"]):
                 return data
 
         solar = data.get("solarPowerDps", {})
@@ -288,18 +302,22 @@ class PowerTimeSeries(BaseModel):
         data_points: list[dict[str, Any]] = []
         for ts in timestamps:
             ts_dt = datetime.fromtimestamp(int(ts))
-            data_points.append({
-                "timestamp": ts_dt,
-                "solar": solar.get(ts, None),
-                "battery": battery.get(ts, None),
-                "grid": grid.get(ts, None),
-                "meter": meter.get(ts, None),
-                "home": home.get(ts, None),
-                "eps": eps.get(ts, None),
-            })
+            data_points.append(
+                {
+                    "timestamp": ts_dt,
+                    "solar": solar.get(ts, None),
+                    "battery": battery.get(ts, None),
+                    "grid": grid.get(ts, None),
+                    "meter": meter.get(ts, None),
+                    "home": home.get(ts, None),
+                    "eps": eps.get(ts, None),
+                }
+            )
         return {"metrics": data_points}
 
-    def find_by_timestamp(self, target: datetime, exact: bool = False) -> PowerMetrics | None:
+    def find_by_timestamp(
+        self, target: datetime, exact: bool = False
+    ) -> PowerMetrics | None:
         """Return the PowerMetrics instance with the timestamp nearest to the target datetime (or with the exact timestamp only).
 
         Args:
@@ -335,7 +353,7 @@ class PowerTimeSeries(BaseModel):
             return before
         return after
 
-    def find_between(self, start: datetime, end: datetime) -> 'PowerTimeSeries':
+    def find_between(self, start: datetime, end: datetime) -> "PowerTimeSeries":
         """Return a list of PowerMetrics instances with timestamps between start and end (inclusive).
 
         Args:
@@ -346,7 +364,9 @@ class PowerTimeSeries(BaseModel):
             A list of PowerMetrics instances with timestamps between start and end (inclusive).
 
         """
-        return PowerTimeSeries(metrics=[m for m in self.metrics if start <= m.timestamp <= end])
+        return PowerTimeSeries(
+            metrics=[m for m in self.metrics if start <= m.timestamp <= end]
+        )
 
     # def total_solar_energy(self) -> float:
     #     """Compute total solar energy generated during the day (in kWh)."""
@@ -407,7 +427,9 @@ class EnergyHistory(BaseModel):
     solar_percent: float = Field(alias="solarPercent")
     metrics: list[EnergyMetric] = Field(alias="homeEnergyDps")
 
-    model_config = ConfigDict(populate_by_name=True)  # Allows to populate by field name in the model attribute, as well as the aliases.
+    model_config = ConfigDict(
+        populate_by_name=True
+    )  # Allows to populate by field name in the model attribute, as well as the aliases.
 
     @model_validator(mode="before")
     @classmethod
@@ -426,11 +448,10 @@ class EnergyHistory(BaseModel):
         data_points: list[dict[str, Any]] = []
         for ts in timestamps:
             ts_dt = datetime.fromtimestamp(int(ts))
-            data_points.append({
-                "timestamp": ts_dt,
-                "energy": home.get(ts, None)
-            })
-        output: dict[str, Any] = {key: value for key, value in data.items() if key != "homeEnergyDps"} # copy items from data excluding homeEnergyDps
+            data_points.append({"timestamp": ts_dt, "energy": home.get(ts, None)})
+        output: dict[str, Any] = {
+            key: value for key, value in data.items() if key != "homeEnergyDps"
+        }  # copy items from data excluding homeEnergyDps
         output["metrics"] = data_points
         return output
 
@@ -457,7 +478,9 @@ class EnergyStatistics(BaseModel):
     from_solar: float = Field(alias="fromSolar")
     eps: float
 
-    model_config = ConfigDict(populate_by_name=True)  # Allows to populate by field name in the model attribute, as well as the aliases.
+    model_config = ConfigDict(
+        populate_by_name=True
+    )  # Allows to populate by field name in the model attribute, as well as the aliases.
 
 
 class ConsumptionMetrics(BaseModel):
@@ -477,16 +500,22 @@ class ConsumptionMetrics(BaseModel):
     """
 
     timestamp: datetime = Field(default_factory=datetime.now)
-    from_battery: Annotated[float | None, Field(strict=True, ge=0, alias="fromBatteryDps")]
+    from_battery: Annotated[
+        float | None, Field(strict=True, ge=0, alias="fromBatteryDps")
+    ]
     to_battery: Annotated[float | None, Field(strict=True, ge=0, alias="toBatteryDps")]
     from_grid: Annotated[float | None, Field(strict=True, ge=0, alias="fromGridDps")]
     to_grid: Annotated[float | None, Field(strict=True, ge=0, alias="toGridDps")]
     from_solar: Annotated[float | None, Field(strict=True, ge=0, alias="fromSolarDps")]
     home: Annotated[float | None, Field(strict=True, ge=0, alias="homeEnergyDps")]
     eps: Annotated[float | None, Field(strict=True, ge=0, alias="epsDps")]
-    self_powered: Annotated[float | None, Field(strict=True, ge=0, alias="selfPoweredDps")]
+    self_powered: Annotated[
+        float | None, Field(strict=True, ge=0, alias="selfPoweredDps")
+    ]
 
-    model_config = ConfigDict(populate_by_name=True)  # Allows to populate by field name in the model attribute, as well as the aliases.
+    model_config = ConfigDict(
+        populate_by_name=True
+    )  # Allows to populate by field name in the model attribute, as well as the aliases.
 
 
 class ConsumptionTimeSeries(BaseModel):
@@ -517,7 +546,9 @@ class ConsumptionTimeSeries(BaseModel):
 
     """
 
-    metrics: Annotated[list[ConsumptionMetrics], Field(default_factory=list)] # if instance is created without explicitly providing data, a new, independent empty list is generated as the default
+    metrics: Annotated[
+        list[ConsumptionMetrics], Field(default_factory=list)
+    ]  # if instance is created without explicitly providing data, a new, independent empty list is generated as the default
 
     @model_validator(mode="before")
     @classmethod
@@ -532,8 +563,8 @@ class ConsumptionTimeSeries(BaseModel):
 
         """
         # no tranformation if input if already a list of metrics
-        if 'metrics' in data:
-            if all(isinstance(m, ConsumptionMetrics) for m in data['metrics']):
+        if "metrics" in data:
+            if all(isinstance(m, ConsumptionMetrics) for m in data["metrics"]):
                 return data
 
         from_battery = data.get("fromBatteryDps", {})
@@ -545,23 +576,24 @@ class ConsumptionTimeSeries(BaseModel):
         eps = data.get("epsDps", {})
         self_powered = data.get("selfPoweredDps", {})
 
-
         # Assume all dicts have identical timestamp keys
         timestamps = sorted(home.keys(), key=int)
         data_points: list[dict[str, Any]] = []
         for ts in timestamps:
             ts_dt = datetime.fromtimestamp(int(ts))
-            data_points.append({
-                "timestamp": ts_dt,
-                "from_battery": from_battery.get(ts, None),
-                "to_battery": to_battery.get(ts, None),
-                "from_grid": from_grid.get(ts, None),
-                "to_grid": to_grid.get(ts, None),
-                "from_solar": from_solar.get(ts, None),
-                "home": home.get(ts, None),
-                "eps": eps.get(ts, None),
-                "self_powered": self_powered.get(ts, None)
-            })
+            data_points.append(
+                {
+                    "timestamp": ts_dt,
+                    "from_battery": from_battery.get(ts, None),
+                    "to_battery": to_battery.get(ts, None),
+                    "from_grid": from_grid.get(ts, None),
+                    "to_grid": to_grid.get(ts, None),
+                    "from_solar": from_solar.get(ts, None),
+                    "home": home.get(ts, None),
+                    "eps": eps.get(ts, None),
+                    "self_powered": self_powered.get(ts, None),
+                }
+            )
         return {"metrics": data_points}
 
 
@@ -579,9 +611,13 @@ class DeviceInsight(BaseModel):
     self_powered: int = Field(alias="selfPowered")
     power_timeseries: PowerTimeSeries | None = Field(alias="deviceRealtimeDto")
     energy_statistics: EnergyStatistics | None = Field(alias="deviceStatisticsDto")
-    energy_timeseries: ConsumptionTimeSeries | None = Field(alias="insightConsumptionDataDto")
+    energy_timeseries: ConsumptionTimeSeries | None = Field(
+        alias="insightConsumptionDataDto"
+    )
 
-    model_config = ConfigDict(populate_by_name=True)  # Allows to populate by field name in the model attribute, as well as the aliases.
+    model_config = ConfigDict(
+        populate_by_name=True
+    )  # Allows to populate by field name in the model attribute, as well as the aliases.
 
 
 class EventType(BaseModel):

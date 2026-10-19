@@ -424,9 +424,16 @@ class EcosMockServer:
             return EcosMockServer._ok_response(
                 code=20404, message="Parameter verification failed", success=False
             )
-        if request_payload.get("periodType") == 0: # 5-minute power measurement for the provided day
+        if (
+            request_payload.get("periodType") == 0
+        ):  # 5-minute power measurement for the provided day
             start_date = datetime.fromtimestamp(
-                int(request_payload.get("timestamp", int(datetime.now().timestamp()*1000)) / 1000)
+                int(
+                    request_payload.get(
+                        "timestamp", int(datetime.now().timestamp() * 1000)
+                    )
+                    / 1000
+                )
             ).replace(
                 hour=0, minute=0, second=0, microsecond=0
             )  # convert timestamp (in milliseconds) to datetime
@@ -461,9 +468,16 @@ class EcosMockServer:
                     "insightConsumptionDataDto": None,
                 }
             )
-        if request_payload.get("periodType") == 2: # daily energy for the provided month
+        if (
+            request_payload.get("periodType") == 2
+        ):  # daily energy for the provided month
             start_date = datetime.fromtimestamp(
-                int(request_payload.get("timestamp", int(datetime.now().timestamp()*1000)) / 1000)
+                int(
+                    request_payload.get(
+                        "timestamp", int(datetime.now().timestamp() * 1000)
+                    )
+                    / 1000
+                )
             ).replace(
                 day=1, hour=0, minute=0, second=0, microsecond=0
             )  # convert timestamp (in milliseconds) to datetime
@@ -528,11 +542,46 @@ class EcosMockServer:
 
         # Event catalog
         event_catalog = [
-            {"errorCode":"event_0","eventType":"event","eventTypeInt":0,"eventContentEn":"Waiting for Grid","eventContentCn":"等待电网模式","eventAction":None},
-            {"errorCode":"dsp_10","eventType":"fault","eventTypeInt":2,"eventContentEn":"Grid Off Fault","eventContentCn":"无市电","eventAction":None},
-            {"errorCode":"dsp_11","eventType":"fault","eventTypeInt":2,"eventContentEn":"Grid Voltage Undertrip/Overtrip Fault","eventContentCn":"电网电压故障","eventAction":None},
-            {"errorCode":"event_5","eventType":"event","eventTypeInt":0,"eventContentEn":"Checking","eventContentCn":"进入自检模式","eventAction":None},
-            {"errorCode":"event_1","eventType":"event","eventTypeInt":0,"eventContentEn":"Grid Connected","eventContentCn":"进入并网模式","eventAction":None}
+            {
+                "errorCode": "event_0",
+                "eventType": "event",
+                "eventTypeInt": 0,
+                "eventContentEn": "Waiting for Grid",
+                "eventContentCn": "等待电网模式",
+                "eventAction": None,
+            },
+            {
+                "errorCode": "dsp_10",
+                "eventType": "fault",
+                "eventTypeInt": 2,
+                "eventContentEn": "Grid Off Fault",
+                "eventContentCn": "无市电",
+                "eventAction": None,
+            },
+            {
+                "errorCode": "dsp_11",
+                "eventType": "fault",
+                "eventTypeInt": 2,
+                "eventContentEn": "Grid Voltage Undertrip/Overtrip Fault",
+                "eventContentCn": "电网电压故障",
+                "eventAction": None,
+            },
+            {
+                "errorCode": "event_5",
+                "eventType": "event",
+                "eventTypeInt": 0,
+                "eventContentEn": "Checking",
+                "eventContentCn": "进入自检模式",
+                "eventAction": None,
+            },
+            {
+                "errorCode": "event_1",
+                "eventType": "event",
+                "eventTypeInt": 0,
+                "eventContentEn": "Grid Connected",
+                "eventContentCn": "进入并网模式",
+                "eventAction": None,
+            },
         ]
         # Generate some fake events within the date range
         start_date = datetime.fromtimestamp(request_payload.get("start"))

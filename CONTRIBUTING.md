@@ -33,6 +33,7 @@ Run the same checks CI runs:
 
 ```bash
 ruff check                        # linting
+ruff format --check               # formatting
 mypy                              # type checking
 pytest                            # tests
 python scripts/unasync.py --check # sync client is in sync with the async one

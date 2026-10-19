@@ -136,12 +136,20 @@ def test_get_today_device_data(client, bad_client):
     assert power_ts.find_by_timestamp(first_timestamp, exact=True).solar is not None
     # get a timestamp that does not exist
     before_timestamp = first_timestamp - timedelta(seconds=1)
-    assert power_ts.find_by_timestamp(before_timestamp, exact=False).solar == power_ts.metrics[0].solar # the nearst metric is returned
-    assert power_ts.find_by_timestamp(before_timestamp, exact=True) is None # exact lookup returns None
+    assert (
+        power_ts.find_by_timestamp(before_timestamp, exact=False).solar
+        == power_ts.metrics[0].solar
+    )  # the nearst metric is returned
+    assert (
+        power_ts.find_by_timestamp(before_timestamp, exact=True) is None
+    )  # exact lookup returns None
     # get a timestamp after the last one
     last_timestamp = power_ts.metrics[-1].timestamp
-    after_timestamp =  last_timestamp + timedelta(seconds=1)
-    assert power_ts.find_by_timestamp(after_timestamp, exact=False).solar == power_ts.metrics[-1].solar # value is 1/10th of the position
+    after_timestamp = last_timestamp + timedelta(seconds=1)
+    assert (
+        power_ts.find_by_timestamp(after_timestamp, exact=False).solar
+        == power_ts.metrics[-1].solar
+    )  # value is 1/10th of the position
     assert power_ts.find_by_timestamp(after_timestamp, exact=True) is None
     # get a timestamp within 2 existings
     if len(power_ts.metrics) > 2:
@@ -149,13 +157,20 @@ def test_get_today_device_data(client, bad_client):
         timestamp2 = power_ts.metrics[2].timestamp
         delta = timestamp2 - timestamp1
         if delta >= timedelta(seconds=2):
-            timestamp = timestamp1 + delta/2
-            assert power_ts.find_by_timestamp(timestamp, exact=False).solar == power_ts.metrics[1].solar # returns the value in 2nd position
-            timestamp = timestamp1 + delta/2 + timedelta(seconds=1)
-            assert power_ts.find_by_timestamp(timestamp, exact=False).solar == power_ts.metrics[2].solar # returns the value in 3rd position
+            timestamp = timestamp1 + delta / 2
+            assert (
+                power_ts.find_by_timestamp(timestamp, exact=False).solar
+                == power_ts.metrics[1].solar
+            )  # returns the value in 2nd position
+            timestamp = timestamp1 + delta / 2 + timedelta(seconds=1)
+            assert (
+                power_ts.find_by_timestamp(timestamp, exact=False).solar
+                == power_ts.metrics[2].solar
+            )  # returns the value in 3rd position
     # return series between 2 dates
     between_ts = power_ts.find_between(first_timestamp, last_timestamp)
     assert len(between_ts.metrics) == len(power_ts.metrics)
+
 
 def test_get_realtime_device_data(client, bad_client):
     """Test get realtime device data."""
@@ -208,9 +223,7 @@ def test_get_insight(client, bad_client):
             device_id=1234567890123456789, start_date=now, period_type=1
         )
     with pytest.raises(ParameterVerificationFailedError):
-        client.get_insight(
-            device_id=1234567890123456789, period_type=1
-        )
+        client.get_insight(device_id=1234567890123456789, period_type=1)
     insight = client.get_insight(
         device_id=1234567890123456789, start_date=now, period_type=0
     )

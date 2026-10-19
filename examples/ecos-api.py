@@ -74,7 +74,9 @@ def main() -> None:
 
         print(session.get_realtime_device_data(device.id))  # noqa: T201
 
-        insight = session.get_insight(int(device.id), period_type=5, start_date=start_date)
+        insight = session.get_insight(
+            int(device.id), period_type=5, start_date=start_date
+        )
         print(insight)  # noqa: T201
         # for ts, value in insight['deviceRealtimeDto']['solarPowerDps'].items():
         for metrics in insight.energy_timeseries.metrics:
