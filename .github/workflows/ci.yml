@@ -102,17 +102,30 @@ jobs:
           advanced-security: false
           annotations: true
 
-  # The one check the branch ruleset requires. It fails when any job it needs
-  # failed or was cancelled, so the test matrix can change without the ruleset
-  # changing with it. full_tests is skipped on push by design, and skipped on a
-  # pull request only when test failed, which already fails this job.
+  # The one check the branch ruleset requires. It fails when any job of the run
+  # failed, timed out or was cancelled, so the test matrix can change without
+  # the ruleset changing with it. It reads each job from the API because
+  # needs.<job>.result aggregates a matrix: a leg cancelled before it got a
+  # runner still left full_tests at success. full_tests is skipped on push by
+  # design, and skipped on a pull request only when test failed, which already
+  # fails this job.
   ci-ok:
     if: ${{ always() }}
     needs: [test, full_tests, zizmor]
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    permissions: {}
+    permissions:
+      actions: read
     steps:
-      - name: Fail if a needed job failed or was cancelled
-        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
-        run: exit 1
+      - name: Fail if a job failed, timed out or was cancelled
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOBS: repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs?filter=latest&per_page=100
+        run: |
+          failed=$(gh api --paginate "$JOBS" \
+            --jq '.jobs[] | select(.conclusion == "failure" or .conclusion == "timed_out" or .conclusion == "cancelled") | .name')
+          if [ -n "$failed" ]; then
+            echo "::error::Jobs not successful:"
+            echo "$failed"
+            exit 1
+          fi
