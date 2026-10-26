@@ -26,13 +26,14 @@ def pytest_collection_modifyitems(items) -> None:
         async_test.add_marker(session_scope_marker, append=False)
 
 
-def run_server(runner, host="127.0.0.1", port=8080):
-    """Run the server."""
+def run_server(runner, ready, host="127.0.0.1", port=8080):
+    """Run the server, setting ready once it accepts connections."""
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     loop.run_until_complete(runner.setup())
     site = web.TCPSite(runner, host, port)
     loop.run_until_complete(site.start())
+    ready.set()
     loop.run_forever()
 
 
@@ -49,11 +50,15 @@ def mock_server():
     )
     server.setup_routes()
     runner = web.AppRunner(server.app)
+    ready = threading.Event()
     thread = threading.Thread(
-        target=run_server, args=(runner, server.host, server.port)
+        target=run_server, args=(runner, ready, server.host, server.port)
     )
     thread.daemon = True  # daeamon thread will be killed when main thread ends
     thread.start()
+    # Tests would otherwise race the thread and get "connection refused".
+    if not ready.wait(timeout=10):
+        pytest.fail("mock server did not start")
     server.url = f"http://{server.host}:{server.port}"
     return server
 
