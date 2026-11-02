@@ -1,7 +1,7 @@
 [build-system]
 # Exact pin: the published wheel is built by this backend, so a new release of it
 # should arrive through a reviewed update, not at release time.
-requires = ["setuptools==84.0.0"]
+requires = ["setuptools==84.2.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -35,16 +35,16 @@ Repository = "https://github.com/gmasse/ecactus-ecos-py.git"
 
 [dependency-groups]
 dev = [
-    "ruff==0.17.1",
+    "ruff==0.17.2",
     "mypy==2.4.0",
     "pytest == 9.1.1",
-    "pytest-asyncio == 1.4.0",
+    "pytest-asyncio==1.4.1",
     "pytest-cov == 7.1.0",
     "mkdocs == 1.6.1",
-    "mkdocs-material == 9.7.7",
-    "mkdocstrings==1.0.7",
-    "mkdocstrings-python == 2.0.9",
-    "python-dateutil == 2.9.0.post0",
+    "mkdocs-material==9.8.0",
+    "mkdocstrings==1.0.8",
+    "mkdocstrings-python==2.0.10",
+    "python-dateutil==3.0.0",
     "pip-audit==2.10.1"
 ]
 
