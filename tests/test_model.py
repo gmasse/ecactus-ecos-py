@@ -2,6 +2,7 @@
 
 from datetime import datetime, timedelta
 
+from pydantic import ValidationError
 import pytest
 
 from ecactus.model import (
@@ -299,3 +300,17 @@ def test_event_passthrough_when_already_structured():
     et = EventType.from_code("event_0")
     event = Event(event_type=et, occurrenceTime=946684800)
     assert event.event_type is et
+
+
+@pytest.mark.parametrize(
+    ("model", "series"),
+    [
+        (PowerTimeSeries, "homePowerDps"),
+        (EnergyHistory, "homeEnergyDps"),
+        (ConsumptionTimeSeries, "homeEnergyDps"),
+    ],
+)
+def test_out_of_range_timestamp_is_a_validation_error(model, series):
+    """A timestamp datetime cannot hold raises ValidationError, not OSError."""
+    with pytest.raises(ValidationError, match="timestamp out of range"):
+        model(**{series: {"99999999999999999": 1.0}})

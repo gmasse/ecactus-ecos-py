@@ -100,20 +100,28 @@ class ParameterVerificationFailedError(EcosApiError):
 class InvalidJsonError(EcosApiError):
     """Raised when the API returns invalid JSON."""
 
-    def __init__(self) -> None:
-        """Initialize the exception with a default error message."""
-        super().__init__("Invalid JSON")
+    def __init__(self, message: str | None = None) -> None:
+        """Initialize the exception with a default error message.
+
+        Args:
+            message: The error message.
+
+        """
+        if message is None:
+            super().__init__("Invalid JSON")
+        else:
+            super().__init__(message)
 
 
 class ApiResponseError(EcosApiError):
     """Raised when the API returns a non-successful response."""
 
-    def __init__(self, code: int, message: str) -> None:
+    def __init__(self, code: int | None, message: str | None) -> None:
         """Initialize the exception with a default error message.
 
         Args:
-            code: The API status code.
-            message: The error message.
+            code: The API status code, None if the response carries none.
+            message: The error message, None if the response carries none.
 
         """
         self.code = code

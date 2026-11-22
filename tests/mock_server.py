@@ -614,6 +614,24 @@ class EcosMockServer:
         """Return HTTP 200 with valid JSON that lacks the expected envelope keys."""
         return web.json_response({"foo": "bar"}, status=200)
 
+    async def handle_non_object(self, request: web.Request) -> web.Response:
+        """Return HTTP 200 with valid JSON that is not an object."""
+        return web.json_response(["not", "an", "object"], status=200)
+
+    async def handle_invalid_json(self, request: web.Request) -> web.Response:
+        """Return HTTP 200 with a JSON content type and a body that is not JSON."""
+        return web.Response(
+            text="{not json", content_type="application/json", status=200
+        )
+
+    async def handle_deep_json(self, request: web.Request) -> web.Response:
+        """Return HTTP 200 with JSON nested deeper than the parser's recursion limit."""
+        return web.Response(
+            text="[" * 100_000 + "]" * 100_000,
+            content_type="application/json",
+            status=200,
+        )
+
     async def catch_all(self, request: web.Request) -> web.Response:
         """Catch all endpoint."""
         # if request.path starts with /api/client/ then
@@ -670,6 +688,10 @@ class EcosMockServer:
                 ),
                 web.get("/slow", self.handle_slow),
                 web.get("/malformed", self.handle_malformed),
+                web.get("/non-object", self.handle_non_object),
+                web.post("/non-object", self.handle_non_object),
+                web.get("/invalid-json", self.handle_invalid_json),
+                web.get("/deep-json", self.handle_deep_json),
                 web.route("*", "/+{path:.*}", self.catch_all),
             ]
         )

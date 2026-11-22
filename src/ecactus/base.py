@@ -1,5 +1,6 @@
 """Base class for interacting with the ECOS API."""
 
+from collections.abc import AsyncIterable, Iterable
 import json
 import logging
 from typing import Any
@@ -63,9 +64,83 @@ def _log_response(method: str, api_path: str, status: int, text: str) -> None:
         return
     try:
         body: JSON = _redact(json.loads(text))
-    except ValueError:
-        body = f"<non-JSON body, {len(text)} characters>"
+    except (ValueError, RecursionError):  # invalid, or nested too deep
+        body = f"<undecodable body, {len(text)} characters>"
     logger.debug("%s /%s -> HTTP %s: %s", method, api_path, status, body)
+
+
+# A response larger than this raises InvalidJsonError instead of filling memory.
+MAX_RESPONSE_BYTES = 16 * 1024 * 1024
+_CHUNK_SIZE = 64 * 1024
+
+
+def _too_large() -> InvalidJsonError:
+    return InvalidJsonError(f"Response larger than {MAX_RESPONSE_BYTES} bytes")
+
+
+def _read_limited(chunks: Iterable[bytes]) -> bytes:
+    """Read a response body, up to MAX_RESPONSE_BYTES."""
+    body = bytearray()
+    for chunk in chunks:
+        body += chunk
+        if len(body) > MAX_RESPONSE_BYTES:
+            raise _too_large()
+    return bytes(body)
+
+
+async def _async_read_limited(chunks: AsyncIterable[bytes]) -> bytes:
+    """Read a response body, up to MAX_RESPONSE_BYTES."""
+    body = bytearray()
+    async for chunk in chunks:
+        body += chunk
+        if len(body) > MAX_RESPONSE_BYTES:
+            raise _too_large()
+    return bytes(body)
+
+
+def _decode(body: bytes, charset: str | None) -> str:
+    """Decode a response body with its declared charset, UTF-8 by default."""
+    try:
+        return body.decode(charset or "utf-8", errors="replace")
+    except LookupError:  # a charset Python does not know
+        return body.decode("utf-8", errors="replace")
+
+
+def _decode_object(text: str) -> dict[str, JSON] | None:
+    """Return the JSON object in `text`, or None if it holds anything else."""
+    try:
+        body = json.loads(text)
+    except (ValueError, RecursionError):  # invalid, or nested too deep
+        return None
+    return body if isinstance(body, dict) else None
+
+
+def _parse_response(status: int, text: str) -> JSON:
+    """Return the `data` of an ECOS API response, or raise the matching error.
+
+    Raises:
+        UnauthorizedError: If the Authorization token is not valid.
+        ApiResponseError: If the API returns a non-successful response.
+        HttpError: For HTTP error not related to API.
+        InvalidJsonError: If the API returns an invalid JSON.
+
+    """
+    body = _decode_object(text)
+    if body is None:
+        if status != 200:
+            raise HttpError(status, text)
+        raise InvalidJsonError
+    if status >= 400:
+        # message from JSON if available, or HTTP response text
+        error_msg = body.get("message", text)
+        if body.get("code") == 401:
+            raise UnauthorizedError(error_msg)
+        if body.get("code") is not None:
+            raise ApiResponseError(body.get("code"), error_msg)
+        raise HttpError(status, error_msg)
+    if not body.get("success"):
+        raise ApiResponseError(body.get("code"), body.get("message"))
+    return body.get("data")
 
 
 class _BaseEcos:
@@ -151,30 +226,15 @@ class _BaseEcos:
             if self.access_token is not None
             else None
         )
-        response = None
-        try:
-            response = requests.get(
-                full_url, params=payload, headers=headers, timeout=self.timeout
+        with requests.get(
+            full_url, params=payload, headers=headers, timeout=self.timeout, stream=True
+        ) as response:
+            status = response.status_code
+            text = _decode(
+                _read_limited(response.iter_content(_CHUNK_SIZE)), response.encoding
             )
-            _log_response("GET", api_path, response.status_code, response.text)
-            body = response.json()
-        except requests.exceptions.JSONDecodeError as err:
-            if response is not None and response.status_code != 200:
-                raise HttpError(response.status_code, response.text) from err
-            raise InvalidJsonError from err
-        else:
-            if not response.ok:
-                error_msg = body.get(
-                    "message", response.text
-                )  # return message from JSON if avalaible, or HTTP response text
-                if body.get("code") == 401:
-                    raise UnauthorizedError(error_msg)
-                if body.get("code") is not None:
-                    raise ApiResponseError(body.get("code"), error_msg)
-                raise HttpError(response.status_code, error_msg)
-            if not body.get("success"):
-                raise ApiResponseError(body.get("code"), body.get("message"))
-        return body.get("data")
+        _log_response("GET", api_path, status, text)
+        return _parse_response(status, text)
 
     def _post(self, api_path: str, payload: JSON = {}) -> JSON:
         """Make a POST request to the ECOS API.
@@ -203,30 +263,15 @@ class _BaseEcos:
             if self.access_token is not None
             else None
         )
-        response = None
-        try:
-            response = requests.post(
-                full_url, json=payload, headers=headers, timeout=self.timeout
+        with requests.post(
+            full_url, json=payload, headers=headers, timeout=self.timeout, stream=True
+        ) as response:
+            status = response.status_code
+            text = _decode(
+                _read_limited(response.iter_content(_CHUNK_SIZE)), response.encoding
             )
-            _log_response("POST", api_path, response.status_code, response.text)
-            body = response.json()
-        except requests.exceptions.JSONDecodeError as err:
-            if response is not None and response.status_code != 200:
-                raise HttpError(response.status_code, response.text) from err
-            raise InvalidJsonError from err
-        else:
-            if not response.ok:
-                error_msg = body.get(
-                    "message", response.text
-                )  # return message from JSON if avalaible, or HTTP response text
-                if body.get("code") == 401:
-                    raise UnauthorizedError(error_msg)
-                if body.get("code") is not None:
-                    raise ApiResponseError(body.get("code"), error_msg)
-                raise HttpError(response.status_code, error_msg)
-            if not body.get("success"):
-                raise ApiResponseError(body.get("code"), body.get("message"))
-        return body.get("data")
+        _log_response("POST", api_path, status, text)
+        return _parse_response(status, text)
 
     async def _async_get(self, api_path: str, payload: dict[str, Any] = {}) -> JSON:
         """Make a GET request to the ECOS API.
@@ -257,33 +302,17 @@ class _BaseEcos:
             else None
         )
         timeout = aiohttp.ClientTimeout(total=self.timeout)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            response = None
-            try:
-                async with session.get(
-                    full_url, params=payload, headers=headers
-                ) as response:
-                    _log_response(
-                        "GET", api_path, response.status, await response.text()
-                    )
-                    body = await response.json()
-            except aiohttp.ContentTypeError as err:
-                if response and response.status != 200:
-                    raise HttpError(response.status, await response.text()) from err
-                raise InvalidJsonError from err
-            else:
-                if response and response.status != 200:
-                    error_msg = body.get(
-                        "message", await response.text()
-                    )  # return message from JSON if avalaible, or HTTP response text
-                    if body.get("code") == 401:
-                        raise UnauthorizedError(error_msg)
-                    if body.get("code") is not None:
-                        raise ApiResponseError(body.get("code"), error_msg)
-                    raise HttpError(response.status, error_msg)
-                if not body.get("success"):
-                    raise ApiResponseError(body.get("code"), body.get("message"))
-        return body.get("data")
+        async with (
+            aiohttp.ClientSession(timeout=timeout) as session,
+            session.get(full_url, params=payload, headers=headers) as response,
+        ):
+            status = response.status
+            text = _decode(
+                await _async_read_limited(response.content.iter_chunked(_CHUNK_SIZE)),
+                response.charset,
+            )
+        _log_response("GET", api_path, status, text)
+        return _parse_response(status, text)
 
     async def _async_post(self, api_path: str, payload: JSON = {}) -> JSON:
         """Make a POST request to the ECOS API.
@@ -314,30 +343,14 @@ class _BaseEcos:
             else None
         )
         timeout = aiohttp.ClientTimeout(total=self.timeout)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            response = None
-            try:
-                async with session.post(
-                    full_url, json=payload, headers=headers
-                ) as response:
-                    _log_response(
-                        "POST", api_path, response.status, await response.text()
-                    )
-                    body = await response.json()
-            except aiohttp.ContentTypeError as err:
-                if response and response.status != 200:
-                    raise HttpError(response.status, await response.text()) from err
-                raise InvalidJsonError from err
-            else:
-                if response and response.status != 200:
-                    error_msg = body.get(
-                        "message", await response.text()
-                    )  # return message from JSON if avalaible, or HTTP response text
-                    if body.get("code") == 401:
-                        raise UnauthorizedError(error_msg)
-                    if body.get("code") is not None:
-                        raise ApiResponseError(body.get("code"), error_msg)
-                    raise HttpError(response.status, error_msg)
-                if not body.get("success"):
-                    raise ApiResponseError(body.get("code"), body.get("message"))
-        return body.get("data")
+        async with (
+            aiohttp.ClientSession(timeout=timeout) as session,
+            session.post(full_url, json=payload, headers=headers) as response,
+        ):
+            status = response.status
+            text = _decode(
+                await _async_read_limited(response.content.iter_chunked(_CHUNK_SIZE)),
+                response.charset,
+            )
+        _log_response("POST", api_path, status, text)
+        return _parse_response(status, text)
