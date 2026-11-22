@@ -664,9 +664,9 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aiohttp", specifier = ">=3.10.10" },
+    { name = "aiohttp", specifier = ">=3.14.4" },
     { name = "pydantic", specifier = ">=2.10.6" },
-    { name = "requests", specifier = ">=2.32.3" },
+    { name = "requests", specifier = ">=2.33.0" },
 ]
 
 [package.metadata.requires-dev]
