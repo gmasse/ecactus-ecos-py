@@ -13,9 +13,8 @@ from zoneinfo import ZoneInfo
 sys.path.insert(0, str(Path(__file__).resolve().parent / "../src"))
 from ecactus import AsyncEcos
 
-logging.basicConfig(
-    level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s")
+logging.getLogger("ecactus").setLevel(logging.DEBUG)
 
 DATACENTER: str = "EU"
 
@@ -57,7 +56,6 @@ async def main() -> None:
         session = AsyncEcos(datacenter=DATACENTER, email=email, password=password)
         # await session.login()
 
-    print(session.access_token)  # noqa: T201
     user = await session.get_user()
     print(user)  # noqa: T201
 
