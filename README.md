@@ -65,6 +65,27 @@ asyncio.run(main())
 
 A set of ready-to-use scripts is available in the `examples/` directory.
 
+## Logging
+
+The library logs through the standard `logging` module, under the `ecactus` logger.
+At `DEBUG` level it logs every API call and response, with tokens shortened to their
+last 4 characters and personal data (email, phone, location) masked:
+
+```python
+import logging
+
+logging.getLogger("ecactus").setLevel(logging.DEBUG)
+```
+
+Raw response bodies go to a separate `ecactus.wire` logger, which stays off even when
+the root or `ecactus` logger is at `DEBUG`. Turn it on by naming it:
+
+```python
+logging.getLogger("ecactus.wire").setLevel(logging.DEBUG)
+```
+
+**Warning:** `ecactus.wire` output contains live access and refresh tokens. Never share it.
+
 ## Documentation
 
 The API references for both `Ecos` and `AsyncEcos` clients, is available at:
