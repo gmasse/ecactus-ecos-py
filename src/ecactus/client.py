@@ -204,6 +204,7 @@ class Ecos(_BaseEcos):
 
         """
         logger.info("Get realtime data for home %s", home_id)
+        self._ensure_login()
         try:
             return PowerMetrics(
                 **self._get(
@@ -231,6 +232,7 @@ class Ecos(_BaseEcos):
 
         """
         logger.info("Get realtime data for device %s", device_id)
+        self._ensure_login()
         try:
             return PowerMetrics(
                 **self._post(
@@ -270,6 +272,7 @@ class Ecos(_BaseEcos):
 
         """
         logger.info("Get history for device %s", device_id)
+        self._ensure_login()
         if start_date is None:
             if period_type in (1, 2, 4):
                 start_ts = 0
@@ -325,6 +328,7 @@ class Ecos(_BaseEcos):
 
         """
         logger.info("Get insight for device %s", device_id)
+        self._ensure_login()
         if start_date is None:
             if period_type == 5:
                 start_ts = 0
@@ -372,6 +376,7 @@ class Ecos(_BaseEcos):
 
         """
         logger.info("Get events for device %s", device_id)
+        self._ensure_login()
         start_ts = int(start_date.timestamp())
         end_ts = int(end_date.timestamp())
         try:

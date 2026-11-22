@@ -79,6 +79,39 @@ def test_ensure_login(mock_server):
     assert user.username == LOGIN
 
 
+# A client given an email and a password, but not logged in yet, must log
+# in before calling any of these endpoints.
+@pytest.mark.parametrize(
+    ("method", "kwargs"),
+    [
+        ("get_realtime_home_data", {"home_id": 9876543210987654321}),
+        ("get_realtime_device_data", {"device_id": 1234567890123456789}),
+        ("get_history", {"device_id": 1234567890123456789, "period_type": 4}),
+        (
+            "get_insight",
+            {
+                "device_id": 1234567890123456789,
+                "period_type": 2,
+                "start_date": datetime.now(),
+            },
+        ),
+        (
+            "get_fault_events",
+            {
+                "device_id": 1234567890123456789,
+                "start_date": datetime.now() - timedelta(days=7),
+                "end_date": datetime.now(),
+            },
+        ),
+    ],
+)
+def test_ensure_login_before_call(mock_server, method, kwargs):
+    """Test autologin on the methods that read device or home data."""
+    temp_client = ecactus.Ecos(email=LOGIN, password=PASSWORD, url=mock_server.url)
+    getattr(temp_client, method)(**kwargs)
+    assert temp_client.access_token == mock_server.access_token
+
+
 def test_login(mock_server, client):
     """Test login."""
     with pytest.raises(AuthenticationError):
