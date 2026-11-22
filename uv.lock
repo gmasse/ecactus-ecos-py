@@ -639,7 +639,7 @@ wheels = [
 
 [[package]]
 name = "ecactus-ecos-py"
-version = "0.4.1"
+version = "0.4.2"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
