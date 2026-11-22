@@ -112,7 +112,7 @@ class _BaseEcos:
             logger.debug(response.text)
             body = response.json()
         except requests.exceptions.JSONDecodeError as err:
-            if response and response.status_code != 200:
+            if response is not None and response.status_code != 200:
                 raise HttpError(response.status_code, response.text) from err
             raise InvalidJsonError from err
         else:
@@ -165,7 +165,7 @@ class _BaseEcos:
             logger.debug(response.text)
             body = response.json()
         except requests.exceptions.JSONDecodeError as err:
-            if response and response.status_code != 200:
+            if response is not None and response.status_code != 200:
                 raise HttpError(response.status_code, response.text) from err
             raise InvalidJsonError from err
         else:
