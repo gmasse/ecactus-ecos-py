@@ -1,5 +1,6 @@
 """Base class for interacting with the ECOS API."""
 
+import json
 import logging
 from typing import Any
 
@@ -19,6 +20,52 @@ from .exceptions import (
 logger = logging.getLogger(__name__)
 
 JSON = Any
+
+# Raw response bodies, live tokens and personal data included. The library sets
+# this logger to WARNING so that a root or `ecactus` logger at DEBUG does not turn
+# it on: enabling it means naming it, `logging.getLogger("ecactus.wire")`.
+wire_logger = logging.getLogger("ecactus.wire")
+wire_logger.setLevel(logging.WARNING)
+
+# Response keys whose value is masked in the `ecactus` debug log. A sensitive
+# key the API adds later goes through in clear until it is listed here.
+_TOKEN_KEYS = frozenset({"accessToken", "refreshToken"})
+_PERSONAL_KEYS = frozenset(
+    {"password", "email", "phone", "username", "lat", "lon", "latitude", "longitude"}
+)
+
+
+def _redact(value: JSON) -> JSON:
+    """Return a copy of a decoded JSON body with its sensitive values masked.
+
+    A token keeps its last 4 characters, so that a debugging session can still
+    tell whether it changed after a login.
+    """
+    if isinstance(value, list):
+        return [_redact(item) for item in value]
+    if not isinstance(value, dict):
+        return value
+    redacted: dict[str, JSON] = {}
+    for key, item in value.items():
+        if key in _TOKEN_KEYS and isinstance(item, str) and len(item) > 8:
+            redacted[key] = "…" + item[-4:]
+        elif key in _TOKEN_KEYS or key in _PERSONAL_KEYS:
+            redacted[key] = "<REDACTED>"
+        else:
+            redacted[key] = _redact(item)
+    return redacted
+
+
+def _log_response(method: str, api_path: str, status: int, text: str) -> None:
+    """Log a response: raw to `ecactus.wire`, redacted to the module logger."""
+    wire_logger.debug("%s /%s -> HTTP %s: %s", method, api_path, status, text)
+    if not logger.isEnabledFor(logging.DEBUG):
+        return
+    try:
+        body: JSON = _redact(json.loads(text))
+    except ValueError:
+        body = f"<non-JSON body, {len(text)} characters>"
+    logger.debug("%s /%s -> HTTP %s: %s", method, api_path, status, body)
 
 
 class _BaseEcos:
@@ -109,7 +156,7 @@ class _BaseEcos:
             response = requests.get(
                 full_url, params=payload, headers=headers, timeout=self.timeout
             )
-            logger.debug(response.text)
+            _log_response("GET", api_path, response.status_code, response.text)
             body = response.json()
         except requests.exceptions.JSONDecodeError as err:
             if response and response.status_code != 200:
@@ -126,7 +173,6 @@ class _BaseEcos:
                     raise ApiResponseError(body.get("code"), error_msg)
                 raise HttpError(response.status_code, error_msg)
             if not body.get("success"):
-                logger.debug(body)
                 raise ApiResponseError(body.get("code"), body.get("message"))
         return body.get("data")
 
@@ -162,7 +208,7 @@ class _BaseEcos:
             response = requests.post(
                 full_url, json=payload, headers=headers, timeout=self.timeout
             )
-            logger.debug(response.text)
+            _log_response("POST", api_path, response.status_code, response.text)
             body = response.json()
         except requests.exceptions.JSONDecodeError as err:
             if response and response.status_code != 200:
@@ -179,7 +225,6 @@ class _BaseEcos:
                     raise ApiResponseError(body.get("code"), error_msg)
                 raise HttpError(response.status_code, error_msg)
             if not body.get("success"):
-                logger.debug(body)
                 raise ApiResponseError(body.get("code"), body.get("message"))
         return body.get("data")
 
@@ -218,7 +263,9 @@ class _BaseEcos:
                 async with session.get(
                     full_url, params=payload, headers=headers
                 ) as response:
-                    logger.debug(await response.text())
+                    _log_response(
+                        "GET", api_path, response.status, await response.text()
+                    )
                     body = await response.json()
             except aiohttp.ContentTypeError as err:
                 if response and response.status != 200:
@@ -235,7 +282,6 @@ class _BaseEcos:
                         raise ApiResponseError(body.get("code"), error_msg)
                     raise HttpError(response.status, error_msg)
                 if not body.get("success"):
-                    logger.debug(body)
                     raise ApiResponseError(body.get("code"), body.get("message"))
         return body.get("data")
 
@@ -274,7 +320,9 @@ class _BaseEcos:
                 async with session.post(
                     full_url, json=payload, headers=headers
                 ) as response:
-                    logger.debug(await response.text())
+                    _log_response(
+                        "POST", api_path, response.status, await response.text()
+                    )
                     body = await response.json()
             except aiohttp.ContentTypeError as err:
                 if response and response.status != 200:
@@ -291,6 +339,5 @@ class _BaseEcos:
                         raise ApiResponseError(body.get("code"), error_msg)
                     raise HttpError(response.status, error_msg)
                 if not body.get("success"):
-                    logger.debug(body)
                     raise ApiResponseError(body.get("code"), body.get("message"))
         return body.get("data")
