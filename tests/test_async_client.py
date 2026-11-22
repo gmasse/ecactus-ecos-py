@@ -112,14 +112,6 @@ async def test_ensure_login_before_call(mock_server, method, kwargs):
     assert temp_client.access_token == mock_server.access_token
 
 
-async def test_non_json_http_error(mock_server):
-    """A non-JSON error page must raise HttpError with its status code."""
-    temp_client = ecactus.AsyncEcos(url=mock_server.url)
-    with pytest.raises(HttpError) as excinfo:
-        await temp_client._async_get("/not-the-api")  # noqa: SLF001
-    assert excinfo.value.status_code == 404
-
-
 async def test_login(mock_server, client):
     """Test login."""
     with pytest.raises(AuthenticationError):

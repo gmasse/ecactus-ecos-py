@@ -3,7 +3,7 @@
 import pytest
 
 import ecactus
-from ecactus.exceptions import ApiResponseError, EcosApiError
+from ecactus.exceptions import ApiResponseError, EcosApiError, HttpError
 
 
 async def test_async_malformed_response_raises_library_error(mock_server):
@@ -24,3 +24,23 @@ def test_sync_malformed_response_raises_library_error(mock_server):
     client = ecactus.Ecos(url=mock_server.url)
     with pytest.raises(EcosApiError):
         client._get("/malformed")  # noqa: SLF001
+
+
+async def test_async_non_json_error_keeps_http_status(mock_server):
+    """A non-JSON error page must raise HttpError with its status code."""
+    client = ecactus.AsyncEcos(url=mock_server.url)
+    with pytest.raises(HttpError) as exc_info:
+        await client._async_get("/not-the-api")  # noqa: SLF001
+    assert exc_info.value.status_code == 404
+
+
+def test_sync_non_json_error_keeps_http_status(mock_server):
+    """Same guarantee for the synchronous transport.
+
+    A ``requests.Response`` is falsy for any 4xx/5xx, so testing ``if response``
+    used to turn such a page into InvalidJsonError.
+    """
+    client = ecactus.Ecos(url=mock_server.url)
+    with pytest.raises(HttpError) as exc_info:
+        client._get("/not-the-api")  # noqa: SLF001
+    assert exc_info.value.status_code == 404

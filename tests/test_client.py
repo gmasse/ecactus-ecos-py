@@ -87,7 +87,14 @@ def test_ensure_login(mock_server):
         ("get_realtime_home_data", {"home_id": 9876543210987654321}),
         ("get_realtime_device_data", {"device_id": 1234567890123456789}),
         ("get_history", {"device_id": 1234567890123456789, "period_type": 4}),
-        ("get_insight", {"device_id": 1234567890123456789, "period_type": 2, "start_date": datetime.now()}),
+        (
+            "get_insight",
+            {
+                "device_id": 1234567890123456789,
+                "period_type": 2,
+                "start_date": datetime.now(),
+            },
+        ),
         (
             "get_fault_events",
             {
@@ -103,14 +110,6 @@ def test_ensure_login_before_call(mock_server, method, kwargs):
     temp_client = ecactus.Ecos(email=LOGIN, password=PASSWORD, url=mock_server.url)
     getattr(temp_client, method)(**kwargs)
     assert temp_client.access_token == mock_server.access_token
-
-
-def test_non_json_http_error(mock_server):
-    """A non-JSON error page must raise HttpError with its status code."""
-    temp_client = ecactus.Ecos(url=mock_server.url)
-    with pytest.raises(HttpError) as excinfo:
-        temp_client._get("/not-the-api")  # noqa: SLF001
-    assert excinfo.value.status_code == 404
 
 
 def test_login(mock_server, client):
