@@ -501,7 +501,9 @@ class Ecos(_BaseEcos):
         )
 
     def get_power_limit(self, device_id: str) -> float:
-        """Get the power limit of a three-phase device.
+        """Get the main grid connection limit of a three-phase device.
+
+        Shown as "main power connection limit" in the installer app.
 
         Args:
             device_id: The device ID.

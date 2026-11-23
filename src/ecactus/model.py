@@ -163,7 +163,8 @@ class Device(_EcosModel):
         dsp1_software_version: DSP1 firmware version, or None if not reported.
         bms_vendor: Battery management system vendor, or None if not reported.
         first_install: Date of the first installation, or None if not reported.
-        safety_standard_int: Grid safety standard number, or None if not reported.
+        safety_standard_int: Grid safety standard number (1 = Germany VDE-AR-N 4105), or
+            None if not reported.
 
     The optional fields are returned by get_devices (`/v2/home/device/query`)
     but not by get_all_devices (`/home/device/list`).
@@ -947,7 +948,8 @@ class DeviceDetail(_EcosModel):
         first_install: Date of the first installation, or None if not reported.
         rated_power: Rated power as sent by the API (e.g., "13000W").
         battery_capacity: Battery capacity in kWh as sent by the API (e.g., "9.98").
-        safety_standard_int: Grid safety standard number, or None if not reported.
+        safety_standard_int: Grid safety standard number (1 = Germany VDE-AR-N 4105), or
+            None if not reported.
 
     """
 
@@ -994,12 +996,16 @@ class DeviceSettings(_EcosModel):
     Attributes:
         min_capacity: Minimum battery level in percent.
         charge_use_mode_int: Charge use mode number.
-        strategy_mode_int: Strategy mode number.
-        max_feed_in: Maximum feed-in setting (unit not documented).
+        strategy_mode_int: Operating mode number (0 = self-consumption, "self-generate and use"
+            in the ECOS app). The self_* fields belong to this mode.
+        max_feed_in: Feed-in limit in percent of the inverter's rated power (e.g. 31 on a
+            13 kW inverter = 4030 W, used for a 60 % grid export cap on 6.675 kWp of PV).
         feed_in_prohibition: Feed-in prohibition flag.
         discharge_to_grid_flag: Discharge-to-grid flag.
-        eps_battery_min: Battery level reserved for EPS (backup) in percent.
-        self_soc: Minimum battery level in self-consumption mode, in percent.
+        eps_battery_min: Battery level reserved for off-grid (EPS) operation, in percent
+            ("reserved SOC in island mode" in the app).
+        self_soc: Battery level reserved for backup in self-consumption mode, in percent; the
+            battery stops discharging there while on grid ("reserved SOC for backup").
         self_eps_bat: EPS reserve in self-consumption mode, in percent.
         self_feed_in: Feed-in setting in self-consumption mode.
         regular_soc: Minimum battery level in regular mode, in percent.
