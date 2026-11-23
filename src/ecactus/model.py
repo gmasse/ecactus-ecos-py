@@ -18,7 +18,11 @@ def _from_milliseconds(value: Any) -> Any:
 
     """
     if isinstance(value, int | float) and not isinstance(value, bool):
-        return _from_timestamp(str(int(value) // 1000))
+        try:
+            seconds = int(value) // 1000
+        except OverflowError as err:  # json.loads accepts Infinity
+            raise ValueError(f"timestamp out of range: {value}") from err
+        return _from_timestamp(str(seconds))
     return value
 
 
@@ -34,6 +38,23 @@ def _from_timestamp(ts: str) -> datetime:
         return datetime.fromtimestamp(int(ts))
     except (OverflowError, OSError) as err:
         raise ValueError(f"timestamp out of range: {ts}") from err
+
+
+def _series(data: dict[str, Any], key: str) -> dict[str, Any]:
+    """Return the `key` series of raw ECOS data, empty if it is absent or null.
+
+    Raises:
+        ValueError: If the series is neither an object nor null, so that pydantic
+            reports it as a ValidationError.
+
+    """
+    series = data.get(key)
+    if series is None:  # the API sends null for a whole DTO without data
+        return {}
+    if not isinstance(series, dict):
+        # pydantic reports ValueError, not the TypeError the linter asks for
+        raise ValueError(f"{key} should be an object")  # noqa: TRY004
+    return series
 
 
 class _EcosModel(BaseModel):
@@ -328,28 +349,35 @@ class PowerTimeSeries(_EcosModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _transform_raw_data(cls, data: dict[str, Any]) -> dict[str, list[Any]]:
+    def _transform_raw_data(cls, data: Any) -> Any:
         """Extract points from raw ECOS data.
 
         Args:
             data: Raw ECOS data.
 
         Returns:
-            Formatted data compatible with a list of PowerMetrics.
+            Formatted data compatible with a list of PowerMetrics, or `data`
+                unchanged if it is not a dict, for pydantic to reject.
 
         """
+        if not isinstance(data, dict):
+            return data
 
         # no tranformation if input if already a list of metrics
         if "metrics" in data:
-            if all(isinstance(m, PowerMetrics) for m in data["metrics"]):
+            # a `metrics` that is not a list is left to pydantic to reject
+            metrics = data["metrics"]
+            if not isinstance(metrics, list) or all(
+                isinstance(m, PowerMetrics) for m in metrics
+            ):
                 return data
 
-        solar = data.get("solarPowerDps", {})
-        battery = data.get("batteryPowerDps", {})
-        grid = data.get("gridPowerDps", {})
-        meter = data.get("meterPowerDps", {})
-        home = data.get("homePowerDps", {})
-        eps = data.get("epsPowerDps", {})
+        solar = _series(data, "solarPowerDps")
+        battery = _series(data, "batteryPowerDps")
+        grid = _series(data, "gridPowerDps")
+        meter = _series(data, "meterPowerDps")
+        home = _series(data, "homePowerDps")
+        eps = _series(data, "epsPowerDps")
 
         # Assume all dicts have identical timestamp keys
         timestamps = sorted(home.keys(), key=int)
@@ -529,17 +557,17 @@ class WeekEnergy(_EcosModel):
         """
         if not isinstance(data, dict) or "weekEnergy" not in data:
             return data
-        data = dict(data)
+        keys = ("weekEnergy", "carbonEmissionsWeekEnergy", "saveStandardCoalWeekEnergy")
         merged: dict[int, dict[str, Any]] = {}
-        for key in (
-            "weekEnergy",
-            "carbonEmissionsWeekEnergy",
-            "saveStandardCoalWeekEnergy",
-        ):
-            for weekday, values in (data.pop(key, None) or {}).items():
+        for key in keys:
+            for weekday, values in _series(data, key).items():
+                if not isinstance(values, dict | None):
+                    # pydantic reports ValueError, not the TypeError the linter asks for
+                    raise ValueError(f"{key} values should be objects")  # noqa: TRY004
                 merged.setdefault(int(weekday), {"weekday": int(weekday)}).update(
                     values or {}
                 )
+        data = {key: value for key, value in data.items() if key not in keys}
         data["days"] = [merged[weekday] for weekday in sorted(merged)]
         return data
 
@@ -578,17 +606,20 @@ class EnergyHistory(_EcosModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _transform_raw_data(cls, data: dict[str, Any]) -> dict[str, list[Any]]:
+    def _transform_raw_data(cls, data: Any) -> Any:
         """Extract points from raw ECOS data.
 
         Args:
             data: Raw ECOS data.
 
         Returns:
-            Formatted data compatible with a list of EnergyMetric.
+            Formatted data compatible with a list of EnergyMetric, or `data`
+                unchanged if it is not a dict, for pydantic to reject.
 
         """
-        home = data.get("homeEnergyDps", {})
+        if not isinstance(data, dict):
+            return data
+        home = _series(data, "homeEnergyDps")
         timestamps = sorted(home.keys(), key=int)
         data_points: list[dict[str, Any]] = []
         for ts in timestamps:
@@ -697,29 +728,36 @@ class ConsumptionTimeSeries(_EcosModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _transform_raw_data(cls, data: dict[str, Any]) -> dict[str, list[Any]]:
+    def _transform_raw_data(cls, data: Any) -> Any:
         """Extract points from raw ECOS data.
 
         Args:
             data: Raw ECOS data.
 
         Returns:
-            Formatted data compatible with a list of ConsumptionMetrics.
+            Formatted data compatible with a list of ConsumptionMetrics, or
+                `data` unchanged if it is not a dict, for pydantic to reject.
 
         """
+        if not isinstance(data, dict):
+            return data
         # no tranformation if input if already a list of metrics
         if "metrics" in data:
-            if all(isinstance(m, ConsumptionMetrics) for m in data["metrics"]):
+            # a `metrics` that is not a list is left to pydantic to reject
+            metrics = data["metrics"]
+            if not isinstance(metrics, list) or all(
+                isinstance(m, ConsumptionMetrics) for m in metrics
+            ):
                 return data
 
-        from_battery = data.get("fromBatteryDps", {})
-        to_battery = data.get("toBatteryDps", {})
-        from_grid = data.get("fromGridDps", {})
-        to_grid = data.get("toGridDps", {})
-        from_solar = data.get("fromSolarDps", {})
-        home = data.get("homeEnergyDps", {})
-        eps = data.get("epsDps", {})
-        self_powered = data.get("selfPoweredDps", {})
+        from_battery = _series(data, "fromBatteryDps")
+        to_battery = _series(data, "toBatteryDps")
+        from_grid = _series(data, "fromGridDps")
+        to_grid = _series(data, "toGridDps")
+        from_solar = _series(data, "fromSolarDps")
+        home = _series(data, "homeEnergyDps")
+        eps = _series(data, "epsDps")
+        self_powered = _series(data, "selfPoweredDps")
 
         # Assume all dicts have identical timestamp keys
         timestamps = sorted(home.keys(), key=int)
@@ -829,13 +867,17 @@ class EventType(_EcosModel):
 
         """
         code = data.get("errorCode") or ""
-        # Try catalog first
-        known_event_type = cls.from_code(code) if code else None
+        # Try catalog first; a code that is not a string is left to pydantic to reject
+        known_event_type = (
+            cls.from_code(code) if isinstance(code, str) and code else None
+        )
         if known_event_type is not None:
             return known_event_type
 
         # Fallback uses API-provided values when available
-        type_str = (data.get("eventType") or "").lower().strip()
+        type_str = data.get("eventType") or ""
+        if isinstance(type_str, str):
+            type_str = type_str.lower().strip()
         type_id = data.get("eventTypeInt")
         description = data.get("eventContentEn") or "Unknown"
 
@@ -1070,7 +1112,7 @@ class Forecast(_EcosModel):
         """
         if not isinstance(data, dict) or "points" in data:
             return data
-        series = data.get("pvForecastDps") or data.get("loadForecastDps") or {}
+        series = _series(data, "pvForecastDps") or _series(data, "loadForecastDps")
         return {
             "points": [
                 {"timestamp": _from_timestamp(ts), "power": series[ts]}
