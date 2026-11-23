@@ -820,8 +820,8 @@ class EventType(_EcosModel):
 
     Attributes:
         code: The event code (e.g., "event_0", "dsp_10").
-        type: The type string ("event", "alarm", "fault").
-        type_id: The type integer (0=event, 2=fault).
+        type: The type string (`"event"`, `"alarm"`, `"fault"`).
+        type_id: The type integer (0 = event, 1 = alarm, 2 = fault).
         description: English description of the event.
 
     """
