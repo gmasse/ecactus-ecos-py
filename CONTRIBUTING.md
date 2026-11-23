@@ -90,6 +90,11 @@ publishing](https://docs.pypi.org/trusted-publishers/). There is no API token to
 manage: PyPI verifies the workflow's OIDC identity and issues a short-lived
 upload credential.
 
+Before building, the workflow checks that the tag is `v` followed by the `version` in
+`pyproject.toml` and that the tagged commit is on `main`, and fails otherwise. PyPI never
+accepts a version number twice, so a wrong tag must stop there: delete the release and the
+tag, then tag the right commit and publish a new release.
+
 ## Hotfixes
 
 Maintainers only.

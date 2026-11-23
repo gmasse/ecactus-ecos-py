@@ -1,9 +1,13 @@
 """Base class for interacting with the ECOS API."""
 
 from collections.abc import AsyncIterable, Iterable
+import contextlib
 import ipaddress
 import json
 import logging
+import socket
+import threading
+import time
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
@@ -33,33 +37,55 @@ JSON = Any
 wire_logger = logging.getLogger("ecactus.wire")
 wire_logger.setLevel(logging.WARNING)
 
-# Response keys whose value is masked in the `ecactus` debug log. A sensitive
-# key the API adds later goes through in clear until it is listed here.
-_TOKEN_KEYS = frozenset({"accessToken", "refreshToken"})
+# Response keys whose value is masked in the `ecactus` debug log, compared
+# case-insensitively. A key containing a secret marker, or named in the personal
+# list, is masked whole; one containing "token", or named "authorization", is a
+# token. Any other key goes through in clear: a sensitive field the API adds later
+# (a personal one, or a credential such as `apiKey` or `sessionId`) is logged as
+# is until it is listed here. Home and device IDs stay in clear on purpose: the
+# INFO log names them anyway, and a debugging session needs them.
+_SECRET_MARKERS = ("password", "secret")
 _PERSONAL_KEYS = frozenset(
-    {"password", "email", "phone", "username", "lat", "lon", "latitude", "longitude"}
+    {
+        "email",
+        "phone",
+        "username",
+        "nickname",
+        "homename",
+        "devicealiasname",
+        "devicesn",
+        "wifisn",
+        "lat",
+        "lon",
+        "latitude",
+        "longitude",
+    }
 )
 
 
-def _redact(value: JSON) -> JSON:
-    """Return a copy of a decoded JSON body with its sensitive values masked.
+def _redact_item(key: str, item: JSON) -> JSON:
+    """Return the value of a JSON object member, masked if its key is sensitive.
 
     A token keeps its last 4 characters, so that a debugging session can still
     tell whether it changed after a login.
     """
+    name = key.casefold()
+    if name in _PERSONAL_KEYS or any(marker in name for marker in _SECRET_MARKERS):
+        return "<REDACTED>"
+    if "token" in name or name == "authorization":
+        if isinstance(item, str) and len(item) > 8:
+            return "…" + item[-4:]
+        return "<REDACTED>"
+    return _redact(item)
+
+
+def _redact(value: JSON) -> JSON:
+    """Return a copy of a decoded JSON body with its sensitive values masked."""
     if isinstance(value, list):
         return [_redact(item) for item in value]
     if not isinstance(value, dict):
         return value
-    redacted: dict[str, JSON] = {}
-    for key, item in value.items():
-        if key in _TOKEN_KEYS and isinstance(item, str) and len(item) > 8:
-            redacted[key] = "…" + item[-4:]
-        elif key in _TOKEN_KEYS or key in _PERSONAL_KEYS:
-            redacted[key] = "<REDACTED>"
-        else:
-            redacted[key] = _redact(item)
-    return redacted
+    return {key: _redact_item(key, item) for key, item in value.items()}
 
 
 def _log_response(method: str, api_path: str, status: int, text: str) -> None:
@@ -91,6 +117,59 @@ def _read_limited(chunks: Iterable[bytes]) -> bytes:
         if len(body) > MAX_RESPONSE_BYTES:
             raise _too_large()
     return bytes(body)
+
+
+def _read_before(response: "requests.Response", deadline: float | None) -> bytes:
+    """Read a `requests` response body, up to MAX_RESPONSE_BYTES, before `deadline`.
+
+    `requests` applies its timeout to each socket read, not to the whole body: a
+    server sending one byte at a time would hold the call for as long as it likes.
+    At `deadline`, a `time.monotonic()` value, a timer shuts the socket down, which
+    ends the read wherever it waits, decompression included. A response with no
+    socket behind it, as under mock libraries, is read without a timer.
+
+    Raises:
+        requests.exceptions.ReadTimeout: If the body is not read by `deadline`.
+        InvalidJsonError: If the body is larger than MAX_RESPONSE_BYTES.
+
+    """
+    import requests  # noqa: PLC0415
+
+    chunks = response.iter_content(_CHUNK_SIZE)
+    if deadline is None:
+        return _read_limited(chunks)
+    try:  # io.UnsupportedOperation is an OSError
+        borrowed = socket.socket(fileno=response.raw.fileno())
+    except OSError:  # no socket behind the response
+        return _read_limited(chunks)
+    # The response closes its descriptor at the end of the body, possibly before the
+    # timer is cancelled, and the system can then give that number to another socket:
+    # the timer works on a duplicate of its own, which keeps the connection reachable.
+    try:
+        sock = borrowed.dup()
+    finally:
+        borrowed.detach()
+    expired = threading.Event()
+
+    def expire() -> None:
+        expired.set()
+        with contextlib.suppress(OSError):  # the peer has already closed it
+            sock.shutdown(socket.SHUT_RDWR)
+
+    with sock:  # closed once the timer has stopped
+        timer = threading.Timer(deadline - time.monotonic(), expire)
+        timer.start()
+        try:
+            return _read_limited(chunks)
+        finally:
+            timer.cancel()
+            timer.join()
+            # The shutdown ends the read with an error or a truncated body: either
+            # way, the call ran out of time.
+            if expired.is_set():
+                raise requests.exceptions.ReadTimeout(
+                    "Read timed out before the end of the response body"
+                )
 
 
 async def _async_read_limited(chunks: AsyncIterable[bytes]) -> bytes:
@@ -209,8 +288,11 @@ class _BaseEcos:
                 Must use `https`, except on a loopback host (`localhost`, `127.0.0.1`, `::1`).
             access_token: The access token for authentication with the ECOS API.
             refresh_token: The refresh token for authentication with the ECOS API.
-            timeout: Per-request timeout in seconds (total). Applied to every HTTP
-                call. `None` disables the timeout. Defaults to 30 seconds.
+            timeout: Per-request timeout in seconds, applied to every HTTP call: the
+                whole call must end within it. `Ecos` has one gap: until the response
+                headers arrive, `requests` bounds only each connection attempt and
+                each read, so a server sending its headers slowly can hold the call
+                longer. `None` disables the timeout. Defaults to 30 seconds.
 
         Raises:
             InitializationError: If `datacenter` is not one of `CN`, `EU`, or `AU` and `url` is not provided.
@@ -269,6 +351,7 @@ class _BaseEcos:
         """
         import requests  # noqa: PLC0415
 
+        deadline = None if self.timeout is None else time.monotonic() + self.timeout
         api_path = api_path.lstrip("/")  # remove / from beginning of api_path
         full_url = self.url + "/" + api_path
         logger.debug("API GET call: %s", full_url)
@@ -287,9 +370,7 @@ class _BaseEcos:
             hooks={"response": _reject_redirect},
         ) as response:
             status = response.status_code
-            text = _decode(
-                _read_limited(response.iter_content(_CHUNK_SIZE)), response.encoding
-            )
+            text = _decode(_read_before(response, deadline), response.encoding)
         _log_response("GET", api_path, status, text)
         return _parse_response(status, text)
 
@@ -312,6 +393,7 @@ class _BaseEcos:
         """
         import requests  # noqa: PLC0415
 
+        deadline = None if self.timeout is None else time.monotonic() + self.timeout
         api_path = api_path.lstrip("/")  # remove / from beginning of api_path
         full_url = self.url + "/" + api_path
         logger.debug("API POST call: %s", full_url)
@@ -330,9 +412,7 @@ class _BaseEcos:
             hooks={"response": _reject_redirect},
         ) as response:
             status = response.status_code
-            text = _decode(
-                _read_limited(response.iter_content(_CHUNK_SIZE)), response.encoding
-            )
+            text = _decode(_read_before(response, deadline), response.encoding)
         _log_response("POST", api_path, status, text)
         return _parse_response(status, text)
 
