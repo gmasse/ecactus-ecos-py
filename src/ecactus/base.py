@@ -4,7 +4,7 @@ from collections.abc import AsyncIterable, Iterable
 import ipaddress
 import json
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
 from .exceptions import (
@@ -14,6 +14,9 @@ from .exceptions import (
     InvalidJsonError,
     UnauthorizedError,
 )
+
+if TYPE_CHECKING:
+    import requests
 
 # `requests` and `aiohttp` are imported lazily in the methods below: both HTTP
 # implementations share this class, so a caller using only the synchronous mode
@@ -125,10 +128,13 @@ def _parse_response(status: int, text: str) -> JSON:
     Raises:
         UnauthorizedError: If the Authorization token is not valid.
         ApiResponseError: If the API returns a non-successful response.
-        HttpError: For HTTP error not related to API.
+        HttpError: For HTTP error not related to API, a redirect included.
         InvalidJsonError: If the API returns an invalid JSON.
 
     """
+    if 300 <= status < 400:
+        # Redirects are not followed: whatever its body, a 3xx is an error.
+        raise _redirect_error(status)
     body = _decode_object(text)
     if body is None:
         if status != 200:
@@ -145,6 +151,21 @@ def _parse_response(status: int, text: str) -> JSON:
     if not body.get("success"):
         raise ApiResponseError(body.get("code"), body.get("message"))
     return body.get("data")
+
+
+def _redirect_error(status: int) -> HttpError:
+    return HttpError(status, "Redirect not followed")
+
+
+def _reject_redirect(response: "requests.Response", **kwargs: Any) -> None:
+    """Raise on a redirect before `requests` reads its body (a response hook).
+
+    Even with `allow_redirects=False`, `requests` reads the whole body of a
+    redirect to prepare `Response.next`, outside of the MAX_RESPONSE_BYTES limit.
+    """
+    if response.is_redirect:
+        response.close()
+        raise _redirect_error(response.status_code)
 
 
 def _is_loopback(host: str | None) -> bool:
@@ -174,6 +195,9 @@ class _BaseEcos:
         timeout: float | None = 30.0,
     ) -> None:
         """Initialize a session with ECOS API.
+
+        The client never follows an HTTP redirect, which could carry the email and
+        password to another host or to plain http: a 3xx response raises `HttpError`.
 
         Args:
             email: The user's email to use for authentication.
@@ -254,7 +278,13 @@ class _BaseEcos:
             else None
         )
         with requests.get(
-            full_url, params=payload, headers=headers, timeout=self.timeout, stream=True
+            full_url,
+            params=payload,
+            headers=headers,
+            timeout=self.timeout,
+            stream=True,
+            allow_redirects=False,
+            hooks={"response": _reject_redirect},
         ) as response:
             status = response.status_code
             text = _decode(
@@ -291,7 +321,13 @@ class _BaseEcos:
             else None
         )
         with requests.post(
-            full_url, json=payload, headers=headers, timeout=self.timeout, stream=True
+            full_url,
+            json=payload,
+            headers=headers,
+            timeout=self.timeout,
+            stream=True,
+            allow_redirects=False,
+            hooks={"response": _reject_redirect},
         ) as response:
             status = response.status_code
             text = _decode(
@@ -331,7 +367,9 @@ class _BaseEcos:
         timeout = aiohttp.ClientTimeout(total=self.timeout)
         async with (
             aiohttp.ClientSession(timeout=timeout) as session,
-            session.get(full_url, params=payload, headers=headers) as response,
+            session.get(
+                full_url, params=payload, headers=headers, allow_redirects=False
+            ) as response,
         ):
             status = response.status
             text = _decode(
@@ -372,7 +410,9 @@ class _BaseEcos:
         timeout = aiohttp.ClientTimeout(total=self.timeout)
         async with (
             aiohttp.ClientSession(timeout=timeout) as session,
-            session.post(full_url, json=payload, headers=headers) as response,
+            session.post(
+                full_url, json=payload, headers=headers, allow_redirects=False
+            ) as response,
         ):
             status = response.status
             text = _decode(
