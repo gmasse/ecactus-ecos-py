@@ -213,6 +213,9 @@ async def test_get_realtime_device_data(client, bad_client):
         await client.get_realtime_device_data(device_id=0)
     power_metrics = await client.get_realtime_device_data(device_id=1234567890123456789)
     assert power_metrics.home is not None
+    assert power_metrics.battery_heater_status == 0
+    assert power_metrics.sys_run_mode == 0
+    assert power_metrics.sys_power_config == 3
 
 
 async def test_get_realtime_home_data(client, bad_client):

@@ -371,6 +371,7 @@ class EcosMockServer:
                 "sysRunMode": 0,
                 "isExistSolar": True,
                 "sysPowerConfig": 3,
+                "batHeaterStatus": 0,
             }
         )
 
