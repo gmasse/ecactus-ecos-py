@@ -71,6 +71,41 @@ def test_power_metrics_accepts_small_negative_values():
     assert metric.solar == 0
 
 
+def test_power_metrics_parses_state_codes():
+    """The realtime device payload carries state codes next to the power values."""
+    metric = PowerMetrics(
+        solarPower=774,
+        gridPower=167,
+        batteryPower=462,
+        meterPower=0,
+        homePower=312,
+        epsPower=0,
+        batHeaterStatus=1,
+        sysRunMode=1,
+        sysPowerConfig=3,
+    )
+    assert metric.battery_heater_status == 1
+    assert metric.sys_run_mode == 1
+    assert metric.sys_power_config == 3
+    assert metric.model_extra is not None
+    assert "batHeaterStatus" not in metric.model_extra
+
+
+def test_power_metrics_state_codes_are_optional():
+    """History and insight points have no state codes and must still parse."""
+    metric = PowerMetrics(
+        solarPower=0,
+        gridPower=0,
+        batteryPower=0,
+        meterPower=0,
+        homePower=0,
+        epsPower=0,
+    )
+    assert metric.battery_heater_status is None
+    assert metric.sys_run_mode is None
+    assert metric.sys_power_config is None
+
+
 def test_power_metrics_still_rejects_wrong_type():
     """strict=True is kept: a non-numeric value is still rejected."""
     with pytest.raises(ValueError):  # noqa: PT011

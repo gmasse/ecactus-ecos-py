@@ -179,6 +179,10 @@ class PowerMetrics(BaseModel):
         home (float | None): Power consumed by the home (W).
         eps: Power consumed by the EPS (W).
         charge: To be defined (W).
+        battery_heater_status: Battery heater state (0 = off), or None if not reported.
+            Only returned by get_realtime_device_data.
+        sys_run_mode: System run mode code, or None if not reported.
+        sys_power_config: System power configuration code, or None if not reported.
 
     """
 
@@ -195,6 +199,12 @@ class PowerMetrics(BaseModel):
     home: Annotated[float | None, Field(strict=True, alias="homePower")]
     eps: float | None = Field(alias="epsPower")
     charge: float | None = Field(alias="chargePower", default=None)
+    # State codes of the realtime device payload. Optional: the history and
+    # insight series reuse this model and never carry them. Previously only
+    # reachable through model_extra.
+    battery_heater_status: int | None = Field(alias="batHeaterStatus", default=None)
+    sys_run_mode: int | None = Field(alias="sysRunMode", default=None)
+    sys_power_config: int | None = Field(alias="sysPowerConfig", default=None)
 
     model_config = ConfigDict(
         extra="allow", populate_by_name=True
