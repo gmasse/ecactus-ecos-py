@@ -421,3 +421,33 @@ def test_sync_nullable_wrong_data_raises_validation_error(
     client = ecactus.Ecos(url=hostile_url(mock_server, scenario), access_token="token")
     with pytest.raises(ValidationError):
         getattr(client, method)(*args)
+
+
+def _events_payload(**extra: object) -> dict[str, object]:
+    now = int(datetime.now().timestamp())
+    return {
+        "deviceId": "1234567890123456789",
+        "start": now - 86400,
+        "end": now,
+        "pageSize": 10,
+        "pageNum": 0,
+        **extra,
+    }
+
+
+@pytest.mark.parametrize("payload", [_events_payload(), _events_payload(type=None)])
+async def test_async_fault_events_without_type_fail(mock_server, payload):
+    """The live API answers HTTP 500 without `type` or with null, and so does the mock."""
+    client = ecactus.AsyncEcos(
+        url=mock_server.url, access_token=mock_server.access_token
+    )
+    with pytest.raises(ApiResponseError):
+        await client._async_post("/api/client/home/events/fault", payload=payload)  # noqa: SLF001
+
+
+@pytest.mark.parametrize("payload", [_events_payload(), _events_payload(type=None)])
+def test_sync_fault_events_without_type_fail(mock_server, payload):
+    """Same guarantee for the synchronous transport."""
+    client = ecactus.Ecos(url=mock_server.url, access_token=mock_server.access_token)
+    with pytest.raises(ApiResponseError):
+        client._post("/api/client/home/events/fault", payload=payload)  # noqa: SLF001

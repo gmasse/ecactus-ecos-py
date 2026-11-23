@@ -311,22 +311,17 @@ def test_get_fault_events(client, bad_client):
     events = client.get_fault_events(
         device_id=1234567890123456789, start_date=start, end_date=end
     )
-    assert len(events) > 0
-    faults = client.get_fault_events(
-        device_id=1234567890123456789,
-        start_date=start,
-        end_date=end,
-        event_type="fault",
-    )
-    assert faults
-    assert {e.event_type.type for e in faults} == {"fault"}
-    # The live API needs "type" in the payload (HTTP 500 without it); the mock enforces it
-    assert not client.get_fault_events(
-        device_id=1234567890123456789,
-        start_date=start,
-        end_date=end,
-        event_type="alarm",
-    )
+    # By default every type comes back
+    assert {e.event_type.type for e in events} == {"event", "fault", "alarm"}
+    for wanted in ("fault", "alarm", "event"):
+        filtered = client.get_fault_events(
+            device_id=1234567890123456789,
+            start_date=start,
+            end_date=end,
+            event_type=wanted,
+        )
+        assert filtered
+        assert {e.event_type.type for e in filtered} == {wanted}
 
 
 def test_get_device_detail(client, bad_client):
