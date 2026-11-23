@@ -124,6 +124,8 @@ def test_sync_undecodable_charset_falls_back_to_utf8(mock_server, charset):
 # `data` of the wrong type, served by the mock server under /hostile/<scenario>/
 WRONG_DATA = ["null", "missing", "string", "list"]
 
+EVENT_PERIOD = (datetime(2025, 3, 1), datetime(2025, 3, 2))
+
 # Client methods whose `data` goes through a model, with the arguments they need
 MODEL_METHODS = [
     ("get_user", ()),
@@ -135,6 +137,15 @@ MODEL_METHODS = [
     ("get_realtime_device_data", ("device",)),
     ("get_history", ("device", 4)),
     ("get_insight", ("device", 5)),
+    ("get_device_detail", ("device",)),
+    ("get_device_settings", ("device",)),
+    ("get_device_modes", ("home",)),
+    ("get_pv_forecast", ("home", EVENT_PERIOD[0])),
+    ("get_load_forecast", ("home", EVENT_PERIOD[0])),
+    ("get_cost_info", ("home",)),
+    ("get_week_energy", ("home",)),
+    ("get_backup_statistics", ("device", *EVENT_PERIOD)),
+    ("get_unread_message_count", ()),
 ]
 
 # Series a model validator would have called `.keys()` or `.get()` on, and
@@ -152,20 +163,30 @@ MALFORMED_SERIES = [
     ("insight-consumption-list", "get_insight", ("device", 5)),
     ("insight-other-series-number", "get_insight", ("device", 5)),
     ("insight-metrics-not-a-list", "get_insight", ("device", 5)),
+    ("week-series-list", "get_week_energy", ("home",)),
+    ("week-values-list", "get_week_energy", ("home",)),
+    ("forecast-series-list", "get_pv_forecast", ("home", EVENT_PERIOD[0])),
+    ("first-install-infinity", "get_device_detail", ("device",)),
 ]
 
 # Fault event pages whose events a model validator would have choked on
 MALFORMED_EVENTS = ["events-null", "event-code-list", "event-type-number"]
 
-EVENT_PERIOD = (datetime(2025, 3, 1), datetime(2025, 3, 2))
 
-
-# List endpoints, whose `data` goes through an adapter rather than a model
-LIST_METHODS = [
+# Endpoints whose `data` goes through an adapter rather than a model
+ADAPTER_METHODS = [
     ("list", "get_homes", ()),
     ("list", "get_devices", ("home",)),
     ("list", "get_all_devices", ()),
     ("event-type-number", "get_fault_events", ("device", *EVENT_PERIOD)),
+    ("list", "get_device_modes", ("home",)),
+    ("string", "get_power_limit", ("device",)),
+]
+
+# Getters for which a null `data` is an answer: no power limit, no fixed price
+NULLABLE_METHODS = [
+    ("get_power_limit", ("device",), 0.0),
+    ("get_fixed_price", ("home",), None),
 ]
 
 
@@ -329,12 +350,13 @@ def test_sync_malformed_events_raise_validation_error(mock_server, scenario):
         client.get_fault_events("device", *EVENT_PERIOD)
 
 
-@pytest.mark.parametrize(("scenario", "method", "args"), LIST_METHODS)
+@pytest.mark.parametrize(("scenario", "method", "args"), ADAPTER_METHODS)
 async def test_async_list_error_hides_input(mock_server, scenario, method, args):
-    """The ValidationError of a list endpoint does not quote the data received.
+    """The ValidationError of an adapter does not quote the data received.
 
-    The models keep their input out of error messages; a list is validated by
-    an adapter, the root of that validation, which has to carry the same setting.
+    The models keep their input out of error messages; a list or a bare number is
+    validated by an adapter, the root of that validation, which has to carry the
+    same setting.
     """
     client = ecactus.AsyncEcos(
         url=hostile_url(mock_server, scenario), access_token="token"
@@ -344,10 +366,58 @@ async def test_async_list_error_hides_input(mock_server, scenario, method, args)
     assert "input_value" not in str(exc_info.value)
 
 
-@pytest.mark.parametrize(("scenario", "method", "args"), LIST_METHODS)
+@pytest.mark.parametrize(("scenario", "method", "args"), ADAPTER_METHODS)
 def test_sync_list_error_hides_input(mock_server, scenario, method, args):
     """Same guarantee for the synchronous client."""
     client = ecactus.Ecos(url=hostile_url(mock_server, scenario), access_token="token")
     with pytest.raises(ValidationError) as exc_info:
         getattr(client, method)(*args)
     assert "input_value" not in str(exc_info.value)
+
+
+@pytest.mark.parametrize(("method", "args", "expected"), NULLABLE_METHODS)
+@pytest.mark.parametrize("scenario", ["null", "missing"])
+async def test_async_null_data_is_an_answer(
+    mock_server, method, args, expected, scenario
+):
+    """A null or missing `data` means no power limit, or no fixed price."""
+    client = ecactus.AsyncEcos(
+        url=hostile_url(mock_server, scenario), access_token="token"
+    )
+    assert await getattr(client, method)(*args) == expected
+
+
+@pytest.mark.parametrize(("method", "args", "expected"), NULLABLE_METHODS)
+@pytest.mark.parametrize("scenario", ["null", "missing"])
+def test_sync_null_data_is_an_answer(mock_server, method, args, expected, scenario):
+    """Same guarantee for the synchronous client."""
+    client = ecactus.Ecos(url=hostile_url(mock_server, scenario), access_token="token")
+    assert getattr(client, method)(*args) == expected
+
+
+@pytest.mark.parametrize(
+    ("method", "args"), [(method, args) for method, args, _ in NULLABLE_METHODS]
+)
+@pytest.mark.parametrize("scenario", ["string", "list"])
+async def test_async_nullable_wrong_data_raises_validation_error(
+    mock_server, method, args, scenario
+):
+    """`data` of the wrong type raises a ValidationError, not a TypeError."""
+    client = ecactus.AsyncEcos(
+        url=hostile_url(mock_server, scenario), access_token="token"
+    )
+    with pytest.raises(ValidationError):
+        await getattr(client, method)(*args)
+
+
+@pytest.mark.parametrize(
+    ("method", "args"), [(method, args) for method, args, _ in NULLABLE_METHODS]
+)
+@pytest.mark.parametrize("scenario", ["string", "list"])
+def test_sync_nullable_wrong_data_raises_validation_error(
+    mock_server, method, args, scenario
+):
+    """Same guarantee for the synchronous client."""
+    client = ecactus.Ecos(url=hostile_url(mock_server, scenario), access_token="token")
+    with pytest.raises(ValidationError):
+        getattr(client, method)(*args)

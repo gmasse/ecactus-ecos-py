@@ -233,6 +233,11 @@ class EcosMockServer:
                     "master": 0,
                     "emsSoftwareVersion": "000-00000-00",
                     "dsp1SoftwareVersion": "111-11111-11",
+                    "bmsVendor": "VENDOR",
+                    "firstInstall": 1700000000000,
+                    "isMain": None,
+                    "safetyStandard": 1,
+                    "wifiSn": "WIFI000000000001",
                 }
             ]
         )
@@ -372,6 +377,202 @@ class EcosMockServer:
                 "isExistSolar": True,
                 "sysPowerConfig": 3,
                 "batHeaterStatus": 0,
+            }
+        )
+
+    async def handle_get_device_detail(self, request: web.Request) -> web.Response:
+        """Mock three-phase device detail endpoint."""
+        if not self._is_authorized_request(request):
+            return EcosMockServer._unauthorized_response()
+        return EcosMockServer._success_response(
+            data={
+                "name": "My Device",
+                "deviceSn": "SHC000000000000001",
+                "wifiSn": "WIFI000000000001",
+                "deviceModel": "XX-XXX123",
+                "accountList": [
+                    {"accountId": "1", "account": "user@example.com", "master": 1}
+                ],
+                "master": 1,
+                "type": 3,
+                "emsSoftwareVersion": "000-00000-00",
+                "dsp1SoftwareVersion": "111-11111-11",
+                "resourceSeriesId": 102,
+                "resourceTypeId": 20,
+                "firstInstall": 1700000000000,
+                "ratedPower": "10000W",
+                "batteryCapacity": "9.98",
+                "safetyStandard": 1,
+            }
+        )
+
+    async def handle_get_device_settings(self, request: web.Request) -> web.Response:
+        """Mock device settings endpoint."""
+        if not self._is_authorized_request(request):
+            return EcosMockServer._unauthorized_response()
+        return EcosMockServer._success_response(
+            data={
+                "minCapacity": 15,
+                "chargeUseMode": 0,
+                "maxFeedIn": 50,
+                "epsBatteryMin": 10,
+                "dischargeToGridFlag": 0,
+                "selfSoc": 15,
+                "selfEpsBat": 10,
+                "selfFeedIn": 50,
+                "regularSoc": 15,
+                "regularEpsBat": 10,
+                "regularFeedIn": 50,
+                "backupSoc": -1,
+                "backupEpsBat": -1,
+                "backupFeedIn": -1,
+                "emsSoftwareVersion": "000-00000-00",
+                "dsp1SoftwareVersion": "111-11111-11",
+                "bmsSoftwareVersion": "222-22222-22",
+                "ratedPower": "10000W",
+                "region": "",
+                "autoStrategy": 0,
+                "strategyMode": 0,
+                "defChargePower": 10000,
+                "defDischargePower": 10000,
+                "feedInProhibition": 0,
+                "chargingList": [],
+                "dischargingList": [],
+            }
+        )
+
+    async def handle_get_device_modes(self, request: web.Request) -> web.Response:
+        """Mock device mode endpoint."""
+        if not self._is_authorized_request(request):
+            return EcosMockServer._unauthorized_response()
+        return EcosMockServer._success_response(
+            data=[
+                {
+                    "deviceName": "My Device",
+                    "chargeUseMode": 0,
+                    "isMain": None,
+                    "strategyMode": 0,
+                }
+            ]
+        )
+
+    async def handle_get_power_limit(self, request: web.Request) -> web.Response:
+        """Mock power limit endpoint (bare number)."""
+        if not self._is_authorized_request(request):
+            return EcosMockServer._unauthorized_response()
+        return EcosMockServer._success_response(data=0)
+
+    async def handle_get_forecast(self, request: web.Request) -> web.Response:
+        """Mock PV and load forecast endpoints, plain and realtime."""
+        if not self._is_authorized_request(request):
+            return EcosMockServer._unauthorized_response()
+        day_ms = int(request.query.get("timestamp", "0"))
+        if request.path.endswith("/rt") and day_ms > datetime.now().timestamp() * 1000:
+            return EcosMockServer._ok_response(
+                code=20404, message="Parameter verification failed", success=False
+            )
+        start = int(day_ms / 1000) // 900 * 900
+        points = {str(start + 900 * i): float(100 * i) for i in range(4)}
+        key = "pvForecastDps" if "/pv/" in request.path else "loadForecastDps"
+        other = "loadForecastDps" if key == "pvForecastDps" else "pvForecastDps"
+        return EcosMockServer._success_response(data={key: points, other: {}})
+
+    async def handle_get_cost_info(self, request: web.Request) -> web.Response:
+        """Mock home cost info endpoint."""
+        if not self._is_authorized_request(request):
+            return EcosMockServer._unauthorized_response()
+        return EcosMockServer._success_response(
+            data={
+                "todaySavings": 0.99,
+                "weeklySavings": [
+                    {
+                        "day": 1700000000000,
+                        "loadCost": 4.1,
+                        "gridCost": 3.5,
+                        "feedEarnings": 0.0,
+                        "daySavings": 0.6,
+                    }
+                ],
+                "monthSavings": 53.6,
+                "monthLoadCost": 121.4,
+                "monthGridCost": 68.0,
+                "monthFeedEarnings": 0.2,
+            }
+        )
+
+    async def handle_get_week_energy(self, request: web.Request) -> web.Response:
+        """Mock home week energy endpoint."""
+        if not self._is_authorized_request(request):
+            return EcosMockServer._unauthorized_response()
+        if str(request.query.get("homeId")) != "9876543210987654321":
+            return EcosMockServer._ok_response(
+                code=20450, message="Home does not exist.", success=False
+            )
+        return EcosMockServer._success_response(
+            data={
+                "today": 1,
+                "lastWeekTotalSolar": 28.0,
+                "lastWeekTotalGrid": 56.4,
+                "lastWeekTotalCarbonEmissions": 27.9,
+                "lastWeekTotalSaveStandardCoal": 11.3,
+                "weekEnergy": {
+                    "2": {
+                        "solarEnergy": 2.0,
+                        "gridEnergy": 10.8,
+                        "toGrid": 0.0,
+                        "homeEnergy": 12.8,
+                        "selfPowered": 16.0,
+                    },
+                    "1": {
+                        "solarEnergy": 6.4,
+                        "gridEnergy": 4.8,
+                        "toGrid": 1.2,
+                        "homeEnergy": 7.8,
+                        "selfPowered": 67.0,
+                    },
+                },
+                "carbonEmissionsWeekEnergy": {
+                    "1": {"carbonEmissions": 6.4},
+                    "2": {"carbonEmissions": 2.0},
+                },
+                "saveStandardCoalWeekEnergy": {
+                    "1": {"saveStandardCoal": 2.6},
+                    "2": {"saveStandardCoal": 0.8},
+                },
+            }
+        )
+
+    async def handle_get_backup_statistics(self, request: web.Request) -> web.Response:
+        """Mock backup statistics endpoint."""
+        if not self._is_authorized_request(request):
+            return EcosMockServer._unauthorized_response()
+        return EcosMockServer._success_response(
+            data={"backupCount": 2, "backupEnergy": 1.5, "backupDuration": 3.25}
+        )
+
+    async def handle_get_unread_message_count(
+        self, request: web.Request
+    ) -> web.Response:
+        """Mock unread message count endpoint."""
+        if not self._is_authorized_request(request):
+            return EcosMockServer._unauthorized_response()
+        return EcosMockServer._success_response(
+            data={"deviceMessageCount": 1, "officialMessageCount": 0}
+        )
+
+    async def handle_get_fixed_price(self, request: web.Request) -> web.Response:
+        """Mock fixed electricity price endpoint."""
+        if not self._is_authorized_request(request):
+            return EcosMockServer._unauthorized_response()
+        if str(request.query.get("homeId")) != "9876543210987654321":
+            return EcosMockServer._success_response(data=None)
+        return EcosMockServer._success_response(
+            data={
+                "id": 1,
+                "homeId": 9876543210987654321,
+                "purchasePrice": 0.32,
+                "purchaseTax": 0.0,
+                "feedInPrice": 0.08,
             }
         )
 
@@ -734,6 +935,10 @@ class EcosMockServer:
             "event-type-number": {
                 "data": [{**event, "errorCode": "unknown_0", "eventType": 2}]
             },
+            "week-series-list": {"weekEnergy": [42]},
+            "week-values-list": {"weekEnergy": {"1": [42]}},
+            "forecast-series-list": {"pvForecastDps": [42]},
+            "first-install-infinity": {"firstInstall": float("inf")},
         }
         scenario = request.match_info["scenario"]
         output: JSON = {"code": 0, "message": "success", "success": True}
@@ -804,6 +1009,39 @@ class EcosMockServer:
                     "/api/client/home/events/fault",
                     self.handle_get_fault_events,
                 ),
+                web.get(
+                    "/api/client/v2/device/three/device/detail",
+                    self.handle_get_device_detail,
+                ),
+                web.get("/api/client/customize/info", self.handle_get_device_settings),
+                web.get(
+                    "/api/client/v2/home/device/mode", self.handle_get_device_modes
+                ),
+                web.get(
+                    "/api/client/v2/device/three/device/power_limit",
+                    self.handle_get_power_limit,
+                ),
+                web.get(
+                    "/api/client/v2/home/device/insight/{kind:pv|load}/forecast",
+                    self.handle_get_forecast,
+                ),
+                web.get(
+                    "/api/client/v2/home/device/insight/{kind:pv|load}/forecast/rt",
+                    self.handle_get_forecast,
+                ),
+                web.get("/api/client/v2/home/cost/info", self.handle_get_cost_info),
+                web.get(
+                    "/api/client/v2/home/device/energy", self.handle_get_week_energy
+                ),
+                web.post(
+                    "/api/client/home/events/backup/statistics",
+                    self.handle_get_backup_statistics,
+                ),
+                web.post(
+                    "/api/client/message/count_unread",
+                    self.handle_get_unread_message_count,
+                ),
+                web.get("/api/client/ele/price/fixed/get", self.handle_get_fixed_price),
                 web.get("/slow", self.handle_slow),
                 web.get("/drip", self.handle_drip),
                 web.get("/malformed", self.handle_malformed),

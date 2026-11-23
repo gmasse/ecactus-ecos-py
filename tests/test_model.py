@@ -8,6 +8,7 @@ import pytest
 from ecactus.model import (
     ConsumptionMetrics,
     ConsumptionTimeSeries,
+    Device,
     DeviceInsight,
     EnergyHistory,
     Event,
@@ -349,3 +350,34 @@ def test_out_of_range_timestamp_is_a_validation_error(model, series):
     """A timestamp datetime cannot hold raises ValidationError, not OSError."""
     with pytest.raises(ValidationError, match="timestamp out of range"):
         model(**{series: {"99999999999999999": 1.0}})
+
+
+def _device_payload(**extra: object) -> dict[str, object]:
+    return {
+        "deviceId": "1",
+        "deviceAliasName": "My Device",
+        "state": 0,
+        "vpp": False,
+        "type": 1,
+        "deviceSn": "SN",
+        "agentId": "2",
+        "lon": 0.0,
+        "lat": 0.0,
+        "deviceType": "XX-XXX123",
+        "master": 0,
+        **extra,
+    }
+
+
+def test_device_details_are_optional():
+    """get_all_devices (/home/device/list) has no firmware or vendor fields."""
+    device = Device(**_device_payload())
+    assert device.ems_software_version is None
+    assert device.bms_vendor is None
+    assert device.first_install is None
+
+
+def test_device_first_install_from_milliseconds():
+    """The install date arrives as milliseconds since the epoch."""
+    device = Device(**_device_payload(firstInstall=1776424016219))
+    assert device.first_install == datetime.fromtimestamp(1776424016)

@@ -103,6 +103,30 @@ def test_ensure_login(mock_server):
                 "end_date": datetime.now(),
             },
         ),
+        ("get_device_detail", {"device_id": 1234567890123456789}),
+        ("get_device_settings", {"device_id": 1234567890123456789}),
+        ("get_device_modes", {"home_id": 9876543210987654321}),
+        ("get_power_limit", {"device_id": 1234567890123456789}),
+        (
+            "get_pv_forecast",
+            {"home_id": 9876543210987654321, "day": datetime.now()},
+        ),
+        (
+            "get_load_forecast",
+            {"home_id": 9876543210987654321, "day": datetime.now()},
+        ),
+        ("get_cost_info", {"home_id": 9876543210987654321}),
+        ("get_week_energy", {"home_id": 9876543210987654321}),
+        (
+            "get_backup_statistics",
+            {
+                "device_id": 1234567890123456789,
+                "start_date": datetime.now() - timedelta(days=30),
+                "end_date": datetime.now(),
+            },
+        ),
+        ("get_unread_message_count", {}),
+        ("get_fixed_price", {"home_id": 9876543210987654321}),
     ],
 )
 def test_ensure_login_before_call(mock_server, method, kwargs):
@@ -145,6 +169,12 @@ def test_get_devices(client, bad_client):
         client.get_devices(home_id=0)
     devices = client.get_devices(home_id=9876543210987654321)
     assert devices[0].alias == "My Device"
+    assert devices[0].wifi_sn == "WIFI000000000001"
+    assert devices[0].ems_software_version == "000-00000-00"
+    assert devices[0].dsp1_software_version == "111-11111-11"
+    assert devices[0].bms_vendor == "VENDOR"
+    assert devices[0].first_install == datetime.fromtimestamp(1700000000)
+    assert devices[0].safety_standard_int == 1
 
 
 def test_get_all_devices(client, bad_client):
@@ -282,6 +312,120 @@ def test_get_fault_events(client, bad_client):
         device_id=1234567890123456789, start_date=start, end_date=end
     )
     assert len(events) > 0
+
+
+def test_get_device_detail(client, bad_client):
+    """Test get device detail."""
+    with pytest.raises(UnauthorizedError):
+        bad_client.get_device_detail(device_id=0)
+    detail = client.get_device_detail(device_id=1234567890123456789)
+    assert detail.model == "XX-XXX123"
+    assert detail.rated_power_w == 10000
+    assert detail.battery_capacity_kwh == 9.98
+    assert detail.first_install == datetime.fromtimestamp(1700000000)
+    # the bound accounts are personal data and not modelled
+    assert not hasattr(detail, "account_list")
+
+
+def test_get_device_settings(client, bad_client):
+    """Test get device settings."""
+    with pytest.raises(UnauthorizedError):
+        bad_client.get_device_settings(device_id=0)
+    settings = client.get_device_settings(device_id=1234567890123456789)
+    assert settings.self_soc == 15
+    assert settings.eps_battery_min == 10
+    assert settings.bms_software_version == "222-22222-22"
+    assert settings.charging_list == []
+
+
+def test_get_device_modes(client, bad_client):
+    """Test get device modes."""
+    with pytest.raises(UnauthorizedError):
+        bad_client.get_device_modes(home_id=0)
+    modes = client.get_device_modes(home_id=9876543210987654321)
+    assert modes[0].charge_use_mode_int == 0
+    assert modes[0].is_main is None
+
+
+def test_get_power_limit(client, bad_client):
+    """Test get power limit."""
+    with pytest.raises(UnauthorizedError):
+        bad_client.get_power_limit(device_id=0)
+    assert client.get_power_limit(device_id=1234567890123456789) == 0
+
+
+def test_get_pv_and_load_forecast(client, bad_client):
+    """Test get PV and load forecasts, plain and realtime."""
+    now = datetime.now()
+    with pytest.raises(UnauthorizedError):
+        bad_client.get_pv_forecast(home_id=0, day=now)
+    pv = client.get_pv_forecast(home_id=9876543210987654321, day=now)
+    assert [p.power for p in pv.metrics] == [0.0, 100.0, 200.0, 300.0]
+    assert pv.metrics[0].timestamp < pv.metrics[1].timestamp
+    load = client.get_load_forecast(
+        home_id=9876543210987654321, day=now - timedelta(hours=1), realtime=True
+    )
+    assert len(load.metrics) == 4
+    with pytest.raises(ParameterVerificationFailedError):
+        client.get_pv_forecast(
+            home_id=9876543210987654321, day=now + timedelta(days=1), realtime=True
+        )
+
+
+def test_get_cost_info(client, bad_client):
+    """Test get cost info."""
+    with pytest.raises(UnauthorizedError):
+        bad_client.get_cost_info(home_id=0)
+    cost = client.get_cost_info(home_id=9876543210987654321)
+    assert cost.today_savings == 0.99
+    assert cost.weekly_savings[0].day == datetime.fromtimestamp(1700000000)
+    assert cost.weekly_savings[0].day_savings == 0.6
+
+
+def test_get_week_energy(client, bad_client):
+    """Test get week energy."""
+    with pytest.raises(UnauthorizedError):
+        bad_client.get_week_energy(home_id=0)
+    with pytest.raises(HomeDoesNotExistError):
+        client.get_week_energy(home_id=0)
+    week = client.get_week_energy(home_id=9876543210987654321)
+    assert week.today == 1
+    assert [d.weekday for d in week.days] == [1, 2]
+    assert week.days[0].solar == 6.4
+    assert week.days[0].carbon_emissions == 6.4
+    assert week.days[1].save_standard_coal == 0.8
+
+
+def test_get_backup_statistics(client, bad_client):
+    """Test get backup statistics."""
+    end = datetime.now()
+    start = end - timedelta(days=30)
+    with pytest.raises(UnauthorizedError):
+        bad_client.get_backup_statistics(
+            device_id=0, start_date=start, end_date=end
+        )
+    stats = client.get_backup_statistics(
+        device_id=1234567890123456789, start_date=start, end_date=end
+    )
+    assert (stats.count, stats.energy, stats.duration) == (2, 1.5, 3.25)
+
+
+def test_get_unread_message_count(client, bad_client):
+    """Test get unread message count."""
+    with pytest.raises(UnauthorizedError):
+        bad_client.get_unread_message_count()
+    count = client.get_unread_message_count()
+    assert (count.device, count.official) == (1, 0)
+
+
+def test_get_fixed_price(client, bad_client):
+    """Test get fixed price."""
+    with pytest.raises(UnauthorizedError):
+        bad_client.get_fixed_price(home_id=0)
+    price = client.get_fixed_price(home_id=9876543210987654321)
+    assert price is not None
+    assert (price.purchase_price, price.feed_in_price) == (0.32, 0.08)
+    assert client.get_fixed_price(home_id=1) is None
 
 
 # TODO test 404
