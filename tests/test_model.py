@@ -329,6 +329,27 @@ def test_event_transform_from_raw():
     )
     assert event.event_type.code == "event_1"
     assert event.event_type.description == "Grid Connected"
+    assert event.action_int is None
+
+
+def test_event_action_marks_begin_and_end():
+    """An alarm raised (`0`) and cleared (`1`), as returned by the live API."""
+    raised, cleared = (
+        Event.model_validate(
+            {
+                "errorCode": "",
+                "eventType": "alarm",
+                "eventTypeInt": 1,
+                "eventContentEn": "Charge High Temperature Alarm",
+                "eventAction": action,
+                "occurrenceTime": when,
+            }
+        )
+        for action, when in ((0, "2026-06-26 17:29:16"), (1, "2026-06-26 19:40:29"))
+    )
+    assert raised.action_int == 0
+    assert cleared.action_int == 1
+    assert cleared.occurrence_time > raised.occurrence_time
 
 
 def test_event_passthrough_when_already_structured():
