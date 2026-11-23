@@ -732,6 +732,14 @@ class EcosMockServer:
                 success=False,
                 http_status=401,
             )
+        if request_payload.get("type") is None:
+            # The live API (EU, 2026-11-23) fails without it, and with null
+            return EcosMockServer._response(
+                code=500,
+                message="Parameter specified as non-null is null: parameter eventType",
+                success=False,
+                http_status=500,
+            )
         if not request_payload.get("start") or not request_payload.get("end"):
             return EcosMockServer._response(
                 code=20000,
@@ -784,6 +792,15 @@ class EcosMockServer:
                 "eventContentCn": "进入并网模式",
                 "eventAction": 0,
             },
+            {
+                # The live API sends alarms with an empty errorCode
+                "errorCode": "",
+                "eventType": "alarm",
+                "eventTypeInt": 1,
+                "eventContentEn": "Charge High Temperature Alarm",
+                "eventContentCn": "充电高温告警",
+                "eventAction": None,
+            },
         ]
         # Generate some fake events within the date range
         start_date = datetime.fromtimestamp(request_payload.get("start"))
@@ -791,10 +808,15 @@ class EcosMockServer:
         delta = end_date - start_date
         fake_events: list[JSON] = []
         current_date = start_date
-        while current_date < end_date:
-            random_event = random.choice(event_catalog)
-            random_event["occurrenceTime"] = current_date.strftime("%Y-%m-%d %H:%M:%S")
-            fake_events.append(random_event)
+        # "" returns every type, otherwise only the requested one (fault, alarm, event)
+        wanted = request_payload["type"]
+        catalog = [e for e in event_catalog if not wanted or e["eventType"] == wanted]
+        # Cycle through the catalog rather than pick at random: every type then
+        # shows up, and tests on the mix are deterministic
+        while catalog and current_date < end_date:
+            fake_event = dict(catalog[len(fake_events) % len(catalog)])
+            fake_event["occurrenceTime"] = current_date.strftime("%Y-%m-%d %H:%M:%S")
+            fake_events.append(fake_event)
             current_date += delta / 20  # create 20 events evenly spaced
         # slicing for pagination
         start_index = (page_num - 1) * page_size
