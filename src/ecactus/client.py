@@ -3,7 +3,7 @@
 from datetime import datetime
 import logging
 import time
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import ConfigDict, TypeAdapter
 
@@ -397,14 +397,23 @@ class Ecos(_BaseEcos):
             raise
 
     def get_fault_events(
-        self, device_id: str, start_date: datetime, end_date: datetime
+        self,
+        device_id: str,
+        start_date: datetime,
+        end_date: datetime,
+        *,
+        event_type: Literal["fault", "alarm", "event"] | None = None,
     ) -> list[Event]:
-        """Get fault events for a device.
+        """Get the events of a device: faults, alarms and state changes.
+
+        All three types are returned unless `event_type` filters them.
 
         Args:
             device_id: The device ID to get events for.
             start_date: The start date.
             end_date: The end date.
+            event_type: Only return this type: `"fault"`, `"alarm"` or `"event"`
+                (state changes such as "Grid Connected"). None returns all of them.
 
         Returns:
             A list of events.
@@ -430,6 +439,9 @@ class Ecos(_BaseEcos):
                     "end": end_ts,
                     "pageSize": 1000000,  # large number to get all events in one call
                     "pageNum": 0,
+                    # Required: without it, or with null, the API answers HTTP 500
+                    # "parameter eventType is null" (EU, 2026-11-23). "" selects all types.
+                    "type": event_type or "",
                 },
             )
         except ApiResponseError as err:
