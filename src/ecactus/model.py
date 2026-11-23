@@ -908,9 +908,11 @@ class Event(_EcosModel):
         event_type: The normalized event type (cataloged or generic).
         occurrence_time: When the event occurred.
         action_int: Whether the state begins or ends: `0` = begins, `1` = ends, None if
-            not reported. Each state change of the device is a pair at the same second,
-            the old state ending (`1`) and the new one beginning (`0`); an alarm has a
-            `0` when it is raised and a `1` when it clears.
+            not reported. These are the values observed on one device (EU datacenter),
+            not a documented contract: other values are kept as sent. Each state change
+            of the device is a pair at the same second, the old state ending (`1`) and
+            the new one beginning (`0`); an alarm has a `0` when it is raised and a `1`
+            when it clears.
 
     """
 
