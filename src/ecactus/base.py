@@ -1,8 +1,15 @@
 """Base class for interacting with the ECOS API."""
 
+from collections.abc import AsyncIterable, Iterable
+import contextlib
+import ipaddress
 import json
 import logging
-from typing import Any
+import socket
+import threading
+import time
+from typing import TYPE_CHECKING, Any
+from urllib.parse import urlsplit
 
 from .exceptions import (
     ApiResponseError,
@@ -11,6 +18,9 @@ from .exceptions import (
     InvalidJsonError,
     UnauthorizedError,
 )
+
+if TYPE_CHECKING:
+    import requests
 
 # `requests` and `aiohttp` are imported lazily in the methods below: both HTTP
 # implementations share this class, so a caller using only the synchronous mode
@@ -27,33 +37,58 @@ JSON = Any
 wire_logger = logging.getLogger("ecactus.wire")
 wire_logger.setLevel(logging.WARNING)
 
-# Response keys whose value is masked in the `ecactus` debug log. A sensitive
-# key the API adds later goes through in clear until it is listed here.
-_TOKEN_KEYS = frozenset({"accessToken", "refreshToken"})
+# Response keys whose value is masked in the `ecactus` debug log, compared
+# case-insensitively. A key containing a secret marker, or named in the personal
+# list, is masked whole; one containing "token", or named "authorization", is a
+# token. Any other key goes through in clear: a sensitive field the API adds later
+# (a personal one, or a credential such as `apiKey` or `sessionId`) is logged as
+# is until it is listed here. Home and device IDs stay in clear on purpose: the
+# INFO log names them anyway, and a debugging session needs them.
+_SECRET_MARKERS = ("password", "secret")
 _PERSONAL_KEYS = frozenset(
-    {"password", "email", "phone", "username", "lat", "lon", "latitude", "longitude"}
+    {
+        "email",
+        "phone",
+        "username",
+        "nickname",
+        "homename",
+        "devicealiasname",
+        "devicename",
+        "name",
+        "account",
+        "devicesn",
+        "wifisn",
+        "lat",
+        "lon",
+        "latitude",
+        "longitude",
+    }
 )
 
 
-def _redact(value: JSON) -> JSON:
-    """Return a copy of a decoded JSON body with its sensitive values masked.
+def _redact_item(key: str, item: JSON) -> JSON:
+    """Return the value of a JSON object member, masked if its key is sensitive.
 
     A token keeps its last 4 characters, so that a debugging session can still
     tell whether it changed after a login.
     """
+    name = key.casefold()
+    if name in _PERSONAL_KEYS or any(marker in name for marker in _SECRET_MARKERS):
+        return "<REDACTED>"
+    if "token" in name or name == "authorization":
+        if isinstance(item, str) and len(item) > 8:
+            return "…" + item[-4:]
+        return "<REDACTED>"
+    return _redact(item)
+
+
+def _redact(value: JSON) -> JSON:
+    """Return a copy of a decoded JSON body with its sensitive values masked."""
     if isinstance(value, list):
         return [_redact(item) for item in value]
     if not isinstance(value, dict):
         return value
-    redacted: dict[str, JSON] = {}
-    for key, item in value.items():
-        if key in _TOKEN_KEYS and isinstance(item, str) and len(item) > 8:
-            redacted[key] = "…" + item[-4:]
-        elif key in _TOKEN_KEYS or key in _PERSONAL_KEYS:
-            redacted[key] = "<REDACTED>"
-        else:
-            redacted[key] = _redact(item)
-    return redacted
+    return {key: _redact_item(key, item) for key, item in value.items()}
 
 
 def _log_response(method: str, api_path: str, status: int, text: str) -> None:
@@ -63,9 +98,168 @@ def _log_response(method: str, api_path: str, status: int, text: str) -> None:
         return
     try:
         body: JSON = _redact(json.loads(text))
-    except ValueError:
-        body = f"<non-JSON body, {len(text)} characters>"
+    except (ValueError, RecursionError):  # invalid, or nested too deep
+        body = f"<undecodable body, {len(text)} characters>"
     logger.debug("%s /%s -> HTTP %s: %s", method, api_path, status, body)
+
+
+# A response larger than this raises InvalidJsonError instead of filling memory.
+MAX_RESPONSE_BYTES = 16 * 1024 * 1024
+_CHUNK_SIZE = 64 * 1024
+
+
+def _too_large() -> InvalidJsonError:
+    return InvalidJsonError(f"Response larger than {MAX_RESPONSE_BYTES} bytes")
+
+
+def _read_limited(chunks: Iterable[bytes]) -> bytes:
+    """Read a response body, up to MAX_RESPONSE_BYTES."""
+    body = bytearray()
+    for chunk in chunks:
+        body += chunk
+        if len(body) > MAX_RESPONSE_BYTES:
+            raise _too_large()
+    return bytes(body)
+
+
+def _read_before(response: "requests.Response", deadline: float | None) -> bytes:
+    """Read a `requests` response body, up to MAX_RESPONSE_BYTES, before `deadline`.
+
+    `requests` applies its timeout to each socket read, not to the whole body: a
+    server sending one byte at a time would hold the call for as long as it likes.
+    At `deadline`, a `time.monotonic()` value, a timer shuts the socket down, which
+    ends the read wherever it waits, decompression included. A response with no
+    socket behind it, as under mock libraries, is read without a timer.
+
+    Raises:
+        requests.exceptions.ReadTimeout: If the body is not read by `deadline`.
+        InvalidJsonError: If the body is larger than MAX_RESPONSE_BYTES.
+
+    """
+    import requests  # noqa: PLC0415
+
+    chunks = response.iter_content(_CHUNK_SIZE)
+    if deadline is None:
+        return _read_limited(chunks)
+    try:  # io.UnsupportedOperation is an OSError
+        borrowed = socket.socket(fileno=response.raw.fileno())
+    except OSError:  # no socket behind the response
+        return _read_limited(chunks)
+    # The response closes its descriptor at the end of the body, possibly before the
+    # timer is cancelled, and the system can then give that number to another socket:
+    # the timer works on a duplicate of its own, which keeps the connection reachable.
+    try:
+        sock = borrowed.dup()
+    finally:
+        borrowed.detach()
+    expired = threading.Event()
+
+    def expire() -> None:
+        expired.set()
+        with contextlib.suppress(OSError):  # the peer has already closed it
+            sock.shutdown(socket.SHUT_RDWR)
+
+    with sock:  # closed once the timer has stopped
+        timer = threading.Timer(deadline - time.monotonic(), expire)
+        timer.start()
+        try:
+            return _read_limited(chunks)
+        finally:
+            timer.cancel()
+            timer.join()
+            # The shutdown ends the read with an error or a truncated body: either
+            # way, the call ran out of time.
+            if expired.is_set():
+                raise requests.exceptions.ReadTimeout(
+                    "Read timed out before the end of the response body"
+                )
+
+
+async def _async_read_limited(chunks: AsyncIterable[bytes]) -> bytes:
+    """Read a response body, up to MAX_RESPONSE_BYTES."""
+    body = bytearray()
+    async for chunk in chunks:
+        body += chunk
+        if len(body) > MAX_RESPONSE_BYTES:
+            raise _too_large()
+    return bytes(body)
+
+
+def _decode(body: bytes, charset: str | None) -> str:
+    """Decode a response body with its declared charset, UTF-8 by default."""
+    # A charset Python does not know raises LookupError; `undefined` always raises
+    # UnicodeError, and `idna` raises it too since it refuses `errors="replace"`.
+    try:
+        return body.decode(charset or "utf-8", errors="replace")
+    except (LookupError, UnicodeError):
+        return body.decode("utf-8", errors="replace")
+
+
+def _decode_object(text: str) -> dict[str, JSON] | None:
+    """Return the JSON object in `text`, or None if it holds anything else."""
+    try:
+        body = json.loads(text)
+    except (ValueError, RecursionError):  # invalid, or nested too deep
+        return None
+    return body if isinstance(body, dict) else None
+
+
+def _parse_response(status: int, text: str) -> JSON:
+    """Return the `data` of an ECOS API response, or raise the matching error.
+
+    Raises:
+        UnauthorizedError: If the Authorization token is not valid.
+        ApiResponseError: If the API returns a non-successful response.
+        HttpError: For HTTP error not related to API, a redirect included.
+        InvalidJsonError: If the API returns an invalid JSON.
+
+    """
+    if 300 <= status < 400:
+        # Redirects are not followed: whatever its body, a 3xx is an error.
+        raise _redirect_error(status)
+    body = _decode_object(text)
+    if body is None:
+        if status != 200:
+            raise HttpError(status, text)
+        raise InvalidJsonError
+    if status >= 400:
+        # message from JSON if available, or HTTP response text
+        error_msg = body.get("message", text)
+        if body.get("code") == 401:
+            raise UnauthorizedError(error_msg)
+        if body.get("code") is not None:
+            raise ApiResponseError(body.get("code"), error_msg)
+        raise HttpError(status, error_msg)
+    if not body.get("success"):
+        raise ApiResponseError(body.get("code"), body.get("message"))
+    return body.get("data")
+
+
+def _redirect_error(status: int) -> HttpError:
+    return HttpError(status, "Redirect not followed")
+
+
+def _reject_redirect(response: "requests.Response", **kwargs: Any) -> None:
+    """Raise on a redirect before `requests` reads its body (a response hook).
+
+    Even with `allow_redirects=False`, `requests` reads the whole body of a
+    redirect to prepare `Response.next`, outside of the MAX_RESPONSE_BYTES limit.
+    """
+    if response.is_redirect:
+        response.close()
+        raise _redirect_error(response.status_code)
+
+
+def _is_loopback(host: str | None) -> bool:
+    """Tell whether a URL host is `localhost` or a loopback IP address."""
+    if host is None:
+        return False
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:  # a host name, not an IP address
+        return False
 
 
 class _BaseEcos:
@@ -84,6 +278,9 @@ class _BaseEcos:
     ) -> None:
         """Initialize a session with ECOS API.
 
+        The client never follows an HTTP redirect, which could carry the email and
+        password to another host or to plain http: a 3xx response raises `HttpError`.
+
         Args:
             email: The user's email to use for authentication.
             password: The user's password to use for authentication.
@@ -91,13 +288,18 @@ class _BaseEcos:
             datacenter: The location of the ECOS API datacenter.
                 Can be one of `CN`, `EU`, or `AU`.
             url: The URL of the ECOS API. If specified, `datacenter` is ignored.
+                Must use `https`, except on a loopback host (`localhost`, `127.0.0.1`, `::1`).
             access_token: The access token for authentication with the ECOS API.
             refresh_token: The refresh token for authentication with the ECOS API.
-            timeout: Per-request timeout in seconds (total). Applied to every HTTP
-                call. `None` disables the timeout. Defaults to 30 seconds.
+            timeout: Per-request timeout in seconds, applied to every HTTP call: the
+                whole call must end within it. `Ecos` has one gap: until the response
+                headers arrive, `requests` bounds only each connection attempt and
+                each read, so a server sending its headers slowly can hold the call
+                longer. `None` disables the timeout. Defaults to 30 seconds.
 
         Raises:
             InitializationError: If `datacenter` is not one of `CN`, `EU`, or `AU` and `url` is not provided.
+            InitializationError: If `url` does not use `https` and its host is not a loopback address.
 
         """
         logger.info("Initializing session")
@@ -122,6 +324,15 @@ class _BaseEcos:
                 )
             self.url = datacenters[datacenter]
         else:  # url specified, ignore datacenter
+            # Plain http would send the email and password in clear; loopback stays
+            # allowed for local test servers.
+            parts = urlsplit(url)
+            if parts.scheme != "https" and not (
+                parts.scheme == "http" and _is_loopback(parts.hostname)
+            ):
+                raise InitializationError(
+                    "url must use https (http is only accepted on a loopback host)"
+                )
             self.url = url.rstrip("/")  # remove trailing / from url
 
     def _get(self, api_path: str, payload: dict[str, Any] = {}) -> JSON:
@@ -143,6 +354,7 @@ class _BaseEcos:
         """
         import requests  # noqa: PLC0415
 
+        deadline = None if self.timeout is None else time.monotonic() + self.timeout
         api_path = api_path.lstrip("/")  # remove / from beginning of api_path
         full_url = self.url + "/" + api_path
         logger.debug("API GET call: %s", full_url)
@@ -151,30 +363,19 @@ class _BaseEcos:
             if self.access_token is not None
             else None
         )
-        response = None
-        try:
-            response = requests.get(
-                full_url, params=payload, headers=headers, timeout=self.timeout
-            )
-            _log_response("GET", api_path, response.status_code, response.text)
-            body = response.json()
-        except requests.exceptions.JSONDecodeError as err:
-            if response is not None and response.status_code != 200:
-                raise HttpError(response.status_code, response.text) from err
-            raise InvalidJsonError from err
-        else:
-            if not response.ok:
-                error_msg = body.get(
-                    "message", response.text
-                )  # return message from JSON if avalaible, or HTTP response text
-                if body.get("code") == 401:
-                    raise UnauthorizedError(error_msg)
-                if body.get("code") is not None:
-                    raise ApiResponseError(body.get("code"), error_msg)
-                raise HttpError(response.status_code, error_msg)
-            if not body.get("success"):
-                raise ApiResponseError(body.get("code"), body.get("message"))
-        return body.get("data")
+        with requests.get(
+            full_url,
+            params=payload,
+            headers=headers,
+            timeout=self.timeout,
+            stream=True,
+            allow_redirects=False,
+            hooks={"response": _reject_redirect},
+        ) as response:
+            status = response.status_code
+            text = _decode(_read_before(response, deadline), response.encoding)
+        _log_response("GET", api_path, status, text)
+        return _parse_response(status, text)
 
     def _post(self, api_path: str, payload: JSON = {}) -> JSON:
         """Make a POST request to the ECOS API.
@@ -195,6 +396,7 @@ class _BaseEcos:
         """
         import requests  # noqa: PLC0415
 
+        deadline = None if self.timeout is None else time.monotonic() + self.timeout
         api_path = api_path.lstrip("/")  # remove / from beginning of api_path
         full_url = self.url + "/" + api_path
         logger.debug("API POST call: %s", full_url)
@@ -203,30 +405,19 @@ class _BaseEcos:
             if self.access_token is not None
             else None
         )
-        response = None
-        try:
-            response = requests.post(
-                full_url, json=payload, headers=headers, timeout=self.timeout
-            )
-            _log_response("POST", api_path, response.status_code, response.text)
-            body = response.json()
-        except requests.exceptions.JSONDecodeError as err:
-            if response is not None and response.status_code != 200:
-                raise HttpError(response.status_code, response.text) from err
-            raise InvalidJsonError from err
-        else:
-            if not response.ok:
-                error_msg = body.get(
-                    "message", response.text
-                )  # return message from JSON if avalaible, or HTTP response text
-                if body.get("code") == 401:
-                    raise UnauthorizedError(error_msg)
-                if body.get("code") is not None:
-                    raise ApiResponseError(body.get("code"), error_msg)
-                raise HttpError(response.status_code, error_msg)
-            if not body.get("success"):
-                raise ApiResponseError(body.get("code"), body.get("message"))
-        return body.get("data")
+        with requests.post(
+            full_url,
+            json=payload,
+            headers=headers,
+            timeout=self.timeout,
+            stream=True,
+            allow_redirects=False,
+            hooks={"response": _reject_redirect},
+        ) as response:
+            status = response.status_code
+            text = _decode(_read_before(response, deadline), response.encoding)
+        _log_response("POST", api_path, status, text)
+        return _parse_response(status, text)
 
     async def _async_get(self, api_path: str, payload: dict[str, Any] = {}) -> JSON:
         """Make a GET request to the ECOS API.
@@ -257,33 +448,19 @@ class _BaseEcos:
             else None
         )
         timeout = aiohttp.ClientTimeout(total=self.timeout)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            response = None
-            try:
-                async with session.get(
-                    full_url, params=payload, headers=headers
-                ) as response:
-                    _log_response(
-                        "GET", api_path, response.status, await response.text()
-                    )
-                    body = await response.json()
-            except aiohttp.ContentTypeError as err:
-                if response and response.status != 200:
-                    raise HttpError(response.status, await response.text()) from err
-                raise InvalidJsonError from err
-            else:
-                if response and response.status != 200:
-                    error_msg = body.get(
-                        "message", await response.text()
-                    )  # return message from JSON if avalaible, or HTTP response text
-                    if body.get("code") == 401:
-                        raise UnauthorizedError(error_msg)
-                    if body.get("code") is not None:
-                        raise ApiResponseError(body.get("code"), error_msg)
-                    raise HttpError(response.status, error_msg)
-                if not body.get("success"):
-                    raise ApiResponseError(body.get("code"), body.get("message"))
-        return body.get("data")
+        async with (
+            aiohttp.ClientSession(timeout=timeout) as session,
+            session.get(
+                full_url, params=payload, headers=headers, allow_redirects=False
+            ) as response,
+        ):
+            status = response.status
+            text = _decode(
+                await _async_read_limited(response.content.iter_chunked(_CHUNK_SIZE)),
+                response.charset,
+            )
+        _log_response("GET", api_path, status, text)
+        return _parse_response(status, text)
 
     async def _async_post(self, api_path: str, payload: JSON = {}) -> JSON:
         """Make a POST request to the ECOS API.
@@ -314,30 +491,16 @@ class _BaseEcos:
             else None
         )
         timeout = aiohttp.ClientTimeout(total=self.timeout)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            response = None
-            try:
-                async with session.post(
-                    full_url, json=payload, headers=headers
-                ) as response:
-                    _log_response(
-                        "POST", api_path, response.status, await response.text()
-                    )
-                    body = await response.json()
-            except aiohttp.ContentTypeError as err:
-                if response and response.status != 200:
-                    raise HttpError(response.status, await response.text()) from err
-                raise InvalidJsonError from err
-            else:
-                if response and response.status != 200:
-                    error_msg = body.get(
-                        "message", await response.text()
-                    )  # return message from JSON if avalaible, or HTTP response text
-                    if body.get("code") == 401:
-                        raise UnauthorizedError(error_msg)
-                    if body.get("code") is not None:
-                        raise ApiResponseError(body.get("code"), error_msg)
-                    raise HttpError(response.status, error_msg)
-                if not body.get("success"):
-                    raise ApiResponseError(body.get("code"), body.get("message"))
-        return body.get("data")
+        async with (
+            aiohttp.ClientSession(timeout=timeout) as session,
+            session.post(
+                full_url, json=payload, headers=headers, allow_redirects=False
+            ) as response,
+        ):
+            status = response.status
+            text = _decode(
+                await _async_read_limited(response.content.iter_chunked(_CHUNK_SIZE)),
+                response.charset,
+            )
+        _log_response("POST", api_path, status, text)
+        return _parse_response(status, text)

@@ -100,20 +100,28 @@ class ParameterVerificationFailedError(EcosApiError):
 class InvalidJsonError(EcosApiError):
     """Raised when the API returns invalid JSON."""
 
-    def __init__(self) -> None:
-        """Initialize the exception with a default error message."""
-        super().__init__("Invalid JSON")
+    def __init__(self, message: str | None = None) -> None:
+        """Initialize the exception with a default error message.
+
+        Args:
+            message: The error message.
+
+        """
+        if message is None:
+            super().__init__("Invalid JSON")
+        else:
+            super().__init__(message)
 
 
 class ApiResponseError(EcosApiError):
     """Raised when the API returns a non-successful response."""
 
-    def __init__(self, code: int, message: str) -> None:
+    def __init__(self, code: int | None, message: str | None) -> None:
         """Initialize the exception with a default error message.
 
         Args:
-            code: The API status code.
-            message: The error message.
+            code: The API status code, None if the response carries none.
+            message: The error message, None if the response carries none.
 
         """
         self.code = code
@@ -122,7 +130,13 @@ class ApiResponseError(EcosApiError):
 
 
 class HttpError(EcosApiError):
-    """Raised when an HTTP error occurs while making an API request."""
+    """Raised when an HTTP error occurs while making an API request.
+
+    The exception message shows the first 300 characters of the error message, which
+    can be a whole response body; the `message` attribute keeps it in full.
+    """
+
+    MAX_SHOWN_LENGTH = 300
 
     def __init__(self, status_code: int, message: str) -> None:
         """Initialize the exception with a default error message.
@@ -134,4 +148,7 @@ class HttpError(EcosApiError):
         """
         self.status_code = status_code
         self.message = message
-        super().__init__(f"HTTP error: {status_code} {message}")
+        shown = str(message)
+        if len(shown) > self.MAX_SHOWN_LENGTH:
+            shown = shown[: self.MAX_SHOWN_LENGTH] + "…"
+        super().__init__(f"HTTP error: {status_code} {shown}")

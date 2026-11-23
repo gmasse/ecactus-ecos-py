@@ -7,6 +7,7 @@ Thanks for your interest in improving the eCactus ECOS Python client! Contributi
 - **Target the `dev` branch.** Create your branch from `dev` and open pull requests against `dev`.
 - **`main` only receives releases and maintainer hotfixes.** Please do not open feature or fix PRs against it.
 - **Pull requests are squash-merged.** The PR title becomes the commit subject on `dev`, so please write it as a [Conventional Commit](https://www.conventionalcommits.org/en/v1.0.0/) (`fix: ...`, `feat(client): ...`).
+- **Mark breaking changes.** Add `!` to the title (`feat(model)!: ...`) and describe the change under `BREAKING CHANGE:` in the description. Declaring a field that the API already returns counts: it leaves `model_extra` and is renamed in `model_dump()`.
 
 ```bash
 git checkout dev
@@ -89,6 +90,11 @@ which builds the distributions and uploads them to PyPI through [trusted
 publishing](https://docs.pypi.org/trusted-publishers/). There is no API token to
 manage: PyPI verifies the workflow's OIDC identity and issues a short-lived
 upload credential.
+
+Before building, the workflow checks that the tag is `v` followed by the `version` in
+`pyproject.toml` and that the tagged commit is on `main`, and fails otherwise. PyPI never
+accepts a version number twice, so a wrong tag must stop there: delete the release and the
+tag, then tag the right commit and publish a new release.
 
 ## Hotfixes
 
