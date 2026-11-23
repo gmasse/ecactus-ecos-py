@@ -179,10 +179,12 @@ class PowerMetrics(BaseModel):
         home (float | None): Power consumed by the home (W).
         eps: Power consumed by the EPS (W).
         charge: To be defined (W).
-        battery_heater_status: Battery heater state (0 = off), or None if not reported.
-            Only returned by get_realtime_device_data.
-        sys_run_mode: System run mode code, or None if not reported.
-        sys_power_config: System power configuration code, or None if not reported.
+        battery_heater_status: Battery heater state (0 = off). Only reported by
+            get_realtime_device_data, None otherwise.
+        sys_run_mode: System run mode code. Only reported by
+            get_realtime_device_data, None otherwise.
+        sys_power_config: System power configuration code. Only reported by
+            get_realtime_device_data, None otherwise.
 
     """
 
@@ -200,8 +202,7 @@ class PowerMetrics(BaseModel):
     eps: float | None = Field(alias="epsPower")
     charge: float | None = Field(alias="chargePower", default=None)
     # State codes of the realtime device payload. Optional: the history and
-    # insight series reuse this model and never carry them. Previously only
-    # reachable through model_extra.
+    # insight series reuse this model and never carry them.
     battery_heater_status: int | None = Field(alias="batHeaterStatus", default=None)
     sys_run_mode: int | None = Field(alias="sysRunMode", default=None)
     sys_power_config: int | None = Field(alias="sysPowerConfig", default=None)
@@ -224,9 +225,7 @@ class PowerMetrics(BaseModel):
 #
 # Extra fields (returned by get_realtime_device_data):
 #     "batterySoc": 0,
-#     "sysRunMode": 0,
 #     "isExistSolar": true,
-#     "sysPowerConfig": 3,
 #
 # Example when all solar production is used by home:
 # ``` py
