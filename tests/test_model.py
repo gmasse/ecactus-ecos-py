@@ -2,17 +2,21 @@
 
 from datetime import datetime, timedelta
 
+from pydantic import ValidationError
 import pytest
 
 from ecactus.model import (
     ConsumptionMetrics,
     ConsumptionTimeSeries,
+    Device,
     DeviceInsight,
     EnergyHistory,
     Event,
     EventType,
     PowerMetrics,
     PowerTimeSeries,
+    WeatherDay,
+    WeatherNow,
 )
 
 
@@ -68,6 +72,41 @@ def test_power_metrics_accepts_small_negative_values():
     )
     assert metric.home == -2.0
     assert metric.solar == 0
+
+
+def test_power_metrics_parses_state_codes():
+    """The realtime device payload carries state codes next to the power values."""
+    metric = PowerMetrics(
+        solarPower=774,
+        gridPower=167,
+        batteryPower=462,
+        meterPower=0,
+        homePower=312,
+        epsPower=0,
+        batHeaterStatus=1,
+        sysRunMode=1,
+        sysPowerConfig=3,
+    )
+    assert metric.battery_heater_status == 1
+    assert metric.sys_run_mode == 1
+    assert metric.sys_power_config == 3
+    assert metric.model_extra is not None
+    assert "batHeaterStatus" not in metric.model_extra
+
+
+def test_power_metrics_state_codes_are_optional():
+    """History and insight points have no state codes and must still parse."""
+    metric = PowerMetrics(
+        solarPower=0,
+        gridPower=0,
+        batteryPower=0,
+        meterPower=0,
+        homePower=0,
+        epsPower=0,
+    )
+    assert metric.battery_heater_status is None
+    assert metric.sys_run_mode is None
+    assert metric.sys_power_config is None
 
 
 def test_power_metrics_still_rejects_wrong_type():
@@ -292,6 +331,27 @@ def test_event_transform_from_raw():
     )
     assert event.event_type.code == "event_1"
     assert event.event_type.description == "Grid Connected"
+    assert event.action_int is None
+
+
+def test_event_action_marks_begin_and_end():
+    """An alarm raised (`0`) and cleared (`1`), as returned by the live API."""
+    raised, cleared = (
+        Event.model_validate(
+            {
+                "errorCode": "",
+                "eventType": "alarm",
+                "eventTypeInt": 1,
+                "eventContentEn": "Charge High Temperature Alarm",
+                "eventAction": action,
+                "occurrenceTime": when,
+            }
+        )
+        for action, when in ((0, "2026-06-26 17:29:16"), (1, "2026-06-26 19:40:29"))
+    )
+    assert raised.action_int == 0
+    assert cleared.action_int == 1
+    assert cleared.occurrence_time > raised.occurrence_time
 
 
 def test_event_passthrough_when_already_structured():
@@ -299,3 +359,64 @@ def test_event_passthrough_when_already_structured():
     et = EventType.from_code("event_0")
     event = Event(event_type=et, occurrenceTime=946684800)
     assert event.event_type is et
+
+
+@pytest.mark.parametrize(
+    ("model", "series"),
+    [
+        (PowerTimeSeries, "homePowerDps"),
+        (EnergyHistory, "homeEnergyDps"),
+        (ConsumptionTimeSeries, "homeEnergyDps"),
+    ],
+)
+def test_out_of_range_timestamp_is_a_validation_error(model, series):
+    """A timestamp datetime cannot hold raises ValidationError, not OSError."""
+    with pytest.raises(ValidationError, match="timestamp out of range"):
+        model(**{series: {"99999999999999999": 1.0}})
+
+
+def _device_payload(**extra: object) -> dict[str, object]:
+    return {
+        "deviceId": "1",
+        "deviceAliasName": "My Device",
+        "state": 0,
+        "vpp": False,
+        "type": 1,
+        "deviceSn": "SN",
+        "agentId": "2",
+        "lon": 0.0,
+        "lat": 0.0,
+        "deviceType": "XX-XXX123",
+        "master": 0,
+        **extra,
+    }
+
+
+def test_device_details_are_optional():
+    """get_all_devices (/home/device/list) has no firmware or vendor fields."""
+    device = Device(**_device_payload())
+    assert device.ems_software_version is None
+    assert device.bms_vendor is None
+    assert device.first_install is None
+
+
+def test_device_first_install_from_milliseconds():
+    """The install date arrives as milliseconds since the epoch."""
+    device = Device(**_device_payload(firstInstall=1776424016219))
+    assert device.first_install == datetime.fromtimestamp(1776424016)
+
+
+def test_weather_blank_values_become_none():
+    """The weather service may send "" for any field, numbers, times and texts alike."""
+    now = WeatherNow.model_validate(
+        {"obsTime": "", "temp": "", "text": "", "icon": "", "cloud": "26"}
+    )
+    assert now.observation_time is None
+    assert now.temperature is None
+    assert now.text is None
+    assert now.icon is None
+    assert now.cloud == 26.0
+    day = WeatherDay.model_validate({"fxDate": "", "tempMin": "-6", "windScaleDay": ""})
+    assert day.day is None
+    assert day.temperature_min == -6.0
+    assert day.wind_scale_day is None

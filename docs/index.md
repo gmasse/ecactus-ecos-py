@@ -64,11 +64,45 @@ asyncio.run(main())
 
 A set of ready-to-use scripts is available in the `examples/` directory.
 
+## Error handling
+
+A client method raises one of three kinds of exceptions:
+
+- **`ecactus.exceptions.EcosApiError`**, or one of its subclasses, when the API refuses
+  the call or answers something the client cannot use: `AuthenticationError`,
+  `UnauthorizedError`, `HomeDoesNotExistError`, `UnauthorizedDeviceError`,
+  `ParameterVerificationFailedError`, `ApiResponseError`, `HttpError`,
+  `InvalidJsonError`.
+- **`pydantic.ValidationError`** when a successful response carries data that does not
+  have the expected shape, for instance after a change on the server side. It names
+  the field that failed, without the received value.
+- **Transport errors**, which the client does not wrap: `requests.exceptions.RequestException`
+  for `Ecos`, `aiohttp.ClientError` and `TimeoutError` for `AsyncEcos`.
+
+```python
+import pydantic
+import requests
+
+from ecactus import Ecos
+from ecactus.exceptions import EcosApiError
+
+session = Ecos(datacenter="EU", email="email@domain.com", password="mypassword")
+try:
+    devices = session.get_all_devices()
+except EcosApiError:
+    ...  # refused by the API, or an unusable response
+except pydantic.ValidationError:
+    ...  # data in an unexpected shape
+except requests.exceptions.RequestException:
+    ...  # network failure or timeout
+```
+
 ## Logging
 
 The library logs through the standard `logging` module, under the `ecactus` logger.
 At `DEBUG` level it logs every API call and response, with tokens shortened to their
-last 4 characters and personal data (email, phone, location) masked:
+last 4 characters and passwords, secrets and personal data (email, phone, names,
+serial numbers, location) masked, home and device IDs left in clear:
 
 ```python
 import logging
