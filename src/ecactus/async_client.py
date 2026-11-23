@@ -5,11 +5,14 @@ import logging
 import time
 from typing import Any
 
+from pydantic import ConfigDict, TypeAdapter
+
 from .base import _BaseEcos
 from .exceptions import (
     ApiResponseError,
     AuthenticationError,
     HomeDoesNotExistError,
+    InvalidJsonError,
     ParameterVerificationFailedError,
     UnauthorizedDeviceError,
     UnauthorizedError,  # noqa: F401 # imported to make it available in the docs
@@ -27,6 +30,15 @@ from .model import (
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+# Anything but a list of objects in the `data` of a list endpoint raises a
+# ValidationError, as a malformed object does. An adapter is the root of its
+# validation, so it carries the setting that keeps the input out of the error
+# message, as the models do.
+_LIST_CONFIG = ConfigDict(hide_input_in_errors=True)
+_HOME_LIST = TypeAdapter(list[Home], config=_LIST_CONFIG)
+_DEVICE_LIST = TypeAdapter(list[Device], config=_LIST_CONFIG)
+_EVENT_LIST = TypeAdapter(list[Event], config=_LIST_CONFIG)
 
 
 class AsyncEcos(_BaseEcos):
@@ -49,6 +61,7 @@ class AsyncEcos(_BaseEcos):
         Raises:
             AuthenticationError: If the Authorization token is not valid.
             ApiResponseError: If the API returns a non-successful response.
+            InvalidJsonError: If the response carries no access and refresh tokens.
 
         """
         logger.info("Login")
@@ -71,6 +84,14 @@ class AsyncEcos(_BaseEcos):
             if err.code == 20000:
                 raise AuthenticationError("Missing Account or Password") from err
             raise
+        if not (
+            isinstance(data, dict)
+            and isinstance(data.get("accessToken"), str)
+            and isinstance(data.get("refreshToken"), str)
+        ):
+            raise InvalidJsonError(
+                "Login response carries no access and refresh tokens"
+            )
         self.access_token = data["accessToken"]
         self.refresh_token = data["refreshToken"]
 
@@ -92,7 +113,9 @@ class AsyncEcos(_BaseEcos):
         """
         logger.info("Get user")
         await self._ensure_login()
-        return User(**await self._async_get("/api/client/settings/user/info"))
+        return User.model_validate(
+            await self._async_get("/api/client/settings/user/info")
+        )
 
     async def get_homes(self) -> list[Home]:
         """Get a list of homes.
@@ -107,10 +130,9 @@ class AsyncEcos(_BaseEcos):
         """
         logger.info("Get home list")
         await self._ensure_login()
-        return [
-            Home(**home_data)
-            for home_data in await self._async_get("/api/client/v2/home/family/query")
-        ]
+        return _HOME_LIST.validate_python(
+            await self._async_get("/api/client/v2/home/family/query")
+        )
 
     async def get_devices(self, home_id: str) -> list[Device]:
         """Get a list of devices for a home.
@@ -130,12 +152,11 @@ class AsyncEcos(_BaseEcos):
         logger.info("Get devices for home %s", home_id)
         await self._ensure_login()
         try:
-            return [
-                Device(**device_data)
-                for device_data in await self._async_get(
+            return _DEVICE_LIST.validate_python(
+                await self._async_get(
                     "/api/client/v2/home/device/query", payload={"homeId": home_id}
                 )
-            ]
+            )
         except ApiResponseError as err:
             if err.code == 20450:
                 raise HomeDoesNotExistError(home_id) from err
@@ -154,10 +175,9 @@ class AsyncEcos(_BaseEcos):
         """
         logger.info("Get devices for every homes")
         await self._ensure_login()
-        return [
-            Device(**device_data)
-            for device_data in await self._async_get("/api/client/home/device/list")
-        ]
+        return _DEVICE_LIST.validate_python(
+            await self._async_get("/api/client/home/device/list")
+        )
 
     async def get_today_device_data(self, device_id: str) -> PowerTimeSeries:
         """Get power metrics of the current day until now.
@@ -177,8 +197,8 @@ class AsyncEcos(_BaseEcos):
         logger.info("Get current day data for device %s", device_id)
         await self._ensure_login()
         try:
-            return PowerTimeSeries(
-                **await self._async_post(
+            return PowerTimeSeries.model_validate(
+                await self._async_post(
                     "/api/client/home/now/device/realtime",
                     payload={"deviceId": device_id},
                 )
@@ -206,8 +226,8 @@ class AsyncEcos(_BaseEcos):
         logger.info("Get realtime data for home %s", home_id)
         await self._ensure_login()
         try:
-            return PowerMetrics(
-                **await self._async_get(
+            return PowerMetrics.model_validate(
+                await self._async_get(
                     "/api/client/v2/home/device/runData", payload={"homeId": home_id}
                 )
             )
@@ -234,8 +254,8 @@ class AsyncEcos(_BaseEcos):
         logger.info("Get realtime data for device %s", device_id)
         await self._ensure_login()
         try:
-            return PowerMetrics(
-                **await self._async_post(
+            return PowerMetrics.model_validate(
+                await self._async_post(
                     "/api/client/home/now/device/runData",
                     payload={"deviceId": device_id},
                 )
@@ -283,8 +303,8 @@ class AsyncEcos(_BaseEcos):
         else:
             start_ts = int(start_date.timestamp())
         try:
-            return EnergyHistory(
-                **await self._async_post(
+            return EnergyHistory.model_validate(
+                await self._async_post(
                     "/api/client/home/history/home",
                     payload={
                         "deviceId": device_id,
@@ -339,8 +359,8 @@ class AsyncEcos(_BaseEcos):
         else:
             start_ts = int(start_date.timestamp() * 1000)  # timestamp in milliseconds
         try:
-            return DeviceInsight(
-                **await self._async_post(
+            return DeviceInsight.model_validate(
+                await self._async_post(
                     "/api/client/v2/device/three/device/insight",
                     payload={
                         "deviceId": device_id,
@@ -373,6 +393,7 @@ class AsyncEcos(_BaseEcos):
             UnauthorizedDeviceError: If the device is not authorized or unknown.
             UnauthorizedError: If the Authorization token is not valid.
             ApiResponseError: If the API returns a non-successful response.
+            InvalidJsonError: If the response is not an object.
 
         """
         logger.info("Get events for device %s", device_id)
@@ -380,7 +401,7 @@ class AsyncEcos(_BaseEcos):
         start_ts = int(start_date.timestamp())
         end_ts = int(end_date.timestamp())
         try:
-            output: dict[str, Any] = await self._async_post(
+            output = await self._async_post(
                 "/api/client/home/events/fault",
                 payload={
                     "deviceId": device_id,
@@ -394,4 +415,6 @@ class AsyncEcos(_BaseEcos):
             if err.code == 20424:
                 raise UnauthorizedDeviceError(device_id) from err
             raise
-        return [Event(**event_data) for event_data in output.get("data", [])]
+        if not isinstance(output, dict):
+            raise InvalidJsonError("Fault events response is not an object")
+        return _EVENT_LIST.validate_python(output.get("data", []))
