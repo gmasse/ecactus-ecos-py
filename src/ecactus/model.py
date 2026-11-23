@@ -22,7 +22,18 @@ def _from_timestamp(ts: str) -> datetime:
         raise ValueError(f"timestamp out of range: {ts}") from err
 
 
-class User(BaseModel):
+class _EcosModel(BaseModel):
+    """Base of every ECOS model.
+
+    A ValidationError does not quote the input data, which can hold personal
+    data (email, phone, location, serial numbers) and would otherwise end up in
+    tracebacks that the log redaction does not cover. `errors()` still returns it.
+    """
+
+    model_config = ConfigDict(hide_input_in_errors=True)
+
+
+class User(_EcosModel):
     """Represents a user.
 
     Attributes:
@@ -55,7 +66,7 @@ class User(BaseModel):
     )  # Allows to populate by field name in the model attribute, as well as the aliases.
 
 
-class Home(BaseModel):
+class Home(_EcosModel):
     """Represents a home.
 
     Attributes:
@@ -95,7 +106,7 @@ class Home(BaseModel):
         return self
 
 
-class Device(BaseModel):
+class Device(_EcosModel):
     """Represents a device.
 
     Attributes:
@@ -167,7 +178,7 @@ class Device(BaseModel):
 # dsp1_software_version: str = Field(alias="dsp1SoftwareVersion")
 
 
-class PowerMetrics(BaseModel):
+class PowerMetrics(_EcosModel):
     """Represents a single timestamped power data point.
 
     Attributes:
@@ -261,7 +272,7 @@ class PowerMetrics(BaseModel):
 #         super().__init__(**data)
 
 
-class PowerTimeSeries(BaseModel):
+class PowerTimeSeries(_EcosModel):
     """Represents a series of power metrics over time.
 
     Attributes:
@@ -400,7 +411,7 @@ class PowerTimeSeries(BaseModel):
     #     return sum(dp.battery_soc for dp in self.data_points) / len(self.data_points) if self.data_points else 0.0
 
 
-class EnergyMetric(BaseModel):
+class EnergyMetric(_EcosModel):
     """Represents a single energy data point.
 
     Attributes:
@@ -413,7 +424,7 @@ class EnergyMetric(BaseModel):
     energy: float | None
 
 
-class EnergyHistory(BaseModel):
+class EnergyHistory(_EcosModel):
     """Represents a series of energy metrics over a period.
 
     Attributes:
@@ -470,7 +481,7 @@ class EnergyHistory(BaseModel):
         return output
 
 
-class EnergyStatistics(BaseModel):
+class EnergyStatistics(_EcosModel):
     """Represents energy statistics.
 
     Attributes:
@@ -497,7 +508,7 @@ class EnergyStatistics(BaseModel):
     )  # Allows to populate by field name in the model attribute, as well as the aliases.
 
 
-class ConsumptionMetrics(BaseModel):
+class ConsumptionMetrics(_EcosModel):
     """Represents a single timestamped consumption data point.
 
     Attributes:
@@ -532,7 +543,7 @@ class ConsumptionMetrics(BaseModel):
     )  # Allows to populate by field name in the model attribute, as well as the aliases.
 
 
-class ConsumptionTimeSeries(BaseModel):
+class ConsumptionTimeSeries(_EcosModel):
     """Represents energy time series.
 
     Attributes:
@@ -611,7 +622,7 @@ class ConsumptionTimeSeries(BaseModel):
         return {"metrics": data_points}
 
 
-class DeviceInsight(BaseModel):
+class DeviceInsight(_EcosModel):
     """Represents various statistics and metrics.
 
     Attributes:
@@ -634,7 +645,7 @@ class DeviceInsight(BaseModel):
     )  # Allows to populate by field name in the model attribute, as well as the aliases.
 
 
-class EventType(BaseModel):
+class EventType(_EcosModel):
     """Event type with a catalog and a generic fallback.
 
     Attributes:
@@ -716,7 +727,7 @@ class EventType(BaseModel):
         )
 
 
-class Event(BaseModel):
+class Event(_EcosModel):
     """Represents a single event occurrence.
 
     Attributes:
