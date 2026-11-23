@@ -102,9 +102,11 @@ async def _async_read_limited(chunks: AsyncIterable[bytes]) -> bytes:
 
 def _decode(body: bytes, charset: str | None) -> str:
     """Decode a response body with its declared charset, UTF-8 by default."""
+    # A charset Python does not know raises LookupError; `undefined` always raises
+    # UnicodeError, and `idna` raises it too since it refuses `errors="replace"`.
     try:
         return body.decode(charset or "utf-8", errors="replace")
-    except LookupError:  # a charset Python does not know
+    except (LookupError, UnicodeError):
         return body.decode("utf-8", errors="replace")
 
 

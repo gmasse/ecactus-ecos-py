@@ -1,5 +1,8 @@
 """Unit tests for robust handling of malformed API responses."""
 
+from datetime import datetime
+
+from pydantic import ValidationError
 import pytest
 
 import ecactus
@@ -99,3 +102,219 @@ def test_sync_response_size_is_limited(mock_server, monkeypatch):
     client = ecactus.Ecos(url=mock_server.url)
     with pytest.raises(InvalidJsonError, match="larger than 8 bytes"):
         client._get("/malformed")  # noqa: SLF001
+
+
+@pytest.mark.parametrize("charset", ["undefined", "idna"])
+async def test_async_undecodable_charset_falls_back_to_utf8(mock_server, charset):
+    """A charset that cannot decode the body falls back to UTF-8.
+
+    `undefined` always raises UnicodeError, and `idna` refuses `errors="replace"`.
+    """
+    client = ecactus.AsyncEcos(url=mock_server.url)
+    assert await client._async_get(f"/charset/{charset}") == {}  # noqa: SLF001
+
+
+@pytest.mark.parametrize("charset", ["undefined", "idna"])
+def test_sync_undecodable_charset_falls_back_to_utf8(mock_server, charset):
+    """Same guarantee for the synchronous transport."""
+    client = ecactus.Ecos(url=mock_server.url)
+    assert client._get(f"/charset/{charset}") == {}  # noqa: SLF001
+
+
+# `data` of the wrong type, served by the mock server under /hostile/<scenario>/
+WRONG_DATA = ["null", "missing", "string", "list"]
+
+# Client methods whose `data` goes through a model, with the arguments they need
+MODEL_METHODS = [
+    ("get_user", ()),
+    ("get_homes", ()),
+    ("get_devices", ("home",)),
+    ("get_all_devices", ()),
+    ("get_today_device_data", ("device",)),
+    ("get_realtime_home_data", ("home",)),
+    ("get_realtime_device_data", ("device",)),
+    ("get_history", ("device", 4)),
+    ("get_insight", ("device", 5)),
+]
+
+# Series a model validator would have called `.keys()` or `.get()` on, and
+# timestamp keys that are not numbers
+MALFORMED_SERIES = [
+    ("series-list", "get_today_device_data", ("device",)),
+    ("series-string", "get_today_device_data", ("device",)),
+    ("timestamp-not-a-number", "get_today_device_data", ("device",)),
+    ("other-series-bool", "get_today_device_data", ("device",)),
+    ("metrics-not-a-list", "get_today_device_data", ("device",)),
+    ("series-list", "get_history", ("device", 4)),
+    ("series-string", "get_history", ("device", 4)),
+    ("timestamp-not-a-number", "get_history", ("device", 4)),
+    ("insight-series-list", "get_insight", ("device", 5)),
+    ("insight-consumption-list", "get_insight", ("device", 5)),
+    ("insight-other-series-number", "get_insight", ("device", 5)),
+    ("insight-metrics-not-a-list", "get_insight", ("device", 5)),
+]
+
+# Fault event pages whose events a model validator would have choked on
+MALFORMED_EVENTS = ["events-null", "event-code-list", "event-type-number"]
+
+EVENT_PERIOD = (datetime(2025, 3, 1), datetime(2025, 3, 2))
+
+
+def hostile_url(mock_server, scenario):
+    """Return the URL of an API whose responses carry the scenario's `data`."""
+    return f"{mock_server.url}/hostile/{scenario}"
+
+
+@pytest.mark.parametrize("scenario", [*WRONG_DATA, "tokens-not-strings"])
+async def test_async_login_without_tokens_raises_invalid_json(mock_server, scenario):
+    """A successful login response without string tokens raises InvalidJsonError."""
+    client = ecactus.AsyncEcos(
+        url=hostile_url(mock_server, scenario), email="user", password="password"
+    )
+    with pytest.raises(InvalidJsonError, match="no access and refresh tokens"):
+        await client.login()
+    assert client.access_token is None
+    assert client.refresh_token is None
+
+
+@pytest.mark.parametrize("scenario", [*WRONG_DATA, "tokens-not-strings"])
+def test_sync_login_without_tokens_raises_invalid_json(mock_server, scenario):
+    """Same guarantee for the synchronous client."""
+    client = ecactus.Ecos(
+        url=hostile_url(mock_server, scenario), email="user", password="password"
+    )
+    with pytest.raises(InvalidJsonError, match="no access and refresh tokens"):
+        client.login()
+    assert client.access_token is None
+    assert client.refresh_token is None
+
+
+@pytest.mark.parametrize("scenario", WRONG_DATA)
+@pytest.mark.parametrize(("method", "args"), MODEL_METHODS)
+async def test_async_wrong_data_raises_validation_error(
+    mock_server, method, args, scenario
+):
+    """`data` that is not what the model expects raises a ValidationError.
+
+    Unpacking it with `Model(**data)` or iterating over it raised a TypeError.
+    """
+    client = ecactus.AsyncEcos(
+        url=hostile_url(mock_server, scenario), access_token="token"
+    )
+    with pytest.raises(ValidationError):
+        await getattr(client, method)(*args)
+
+
+@pytest.mark.parametrize("scenario", WRONG_DATA)
+@pytest.mark.parametrize(("method", "args"), MODEL_METHODS)
+def test_sync_wrong_data_raises_validation_error(mock_server, method, args, scenario):
+    """Same guarantee for the synchronous client."""
+    client = ecactus.Ecos(url=hostile_url(mock_server, scenario), access_token="token")
+    with pytest.raises(ValidationError):
+        getattr(client, method)(*args)
+
+
+@pytest.mark.parametrize(("scenario", "method", "args"), MALFORMED_SERIES)
+async def test_async_malformed_series_raises_validation_error(
+    mock_server, scenario, method, args
+):
+    """A malformed series raises a ValidationError, not an AttributeError."""
+    client = ecactus.AsyncEcos(
+        url=hostile_url(mock_server, scenario), access_token="token"
+    )
+    with pytest.raises(ValidationError):
+        await getattr(client, method)(*args)
+
+
+@pytest.mark.parametrize(("scenario", "method", "args"), MALFORMED_SERIES)
+def test_sync_malformed_series_raises_validation_error(
+    mock_server, scenario, method, args
+):
+    """Same guarantee for the synchronous client."""
+    client = ecactus.Ecos(url=hostile_url(mock_server, scenario), access_token="token")
+    with pytest.raises(ValidationError):
+        getattr(client, method)(*args)
+
+
+async def test_async_null_series_holds_no_data(mock_server):
+    """A null series holds no data, like an absent one."""
+    client = ecactus.AsyncEcos(
+        url=hostile_url(mock_server, "series-null"), access_token="token"
+    )
+    assert (await client.get_today_device_data("device")).metrics == []
+    assert (await client.get_history("device", 4)).metrics == []
+
+    client.url = hostile_url(mock_server, "other-series-null")
+    [power] = (await client.get_today_device_data("device")).metrics
+    assert power.home == 1.0
+    assert power.solar is None
+
+    client.url = hostile_url(mock_server, "insight-other-series-null")
+    insight = await client.get_insight("device", 5)
+    assert insight.energy_timeseries is not None
+    [energy] = insight.energy_timeseries.metrics
+    assert energy.home == 1.0
+    assert energy.eps is None
+
+
+def test_sync_null_series_holds_no_data(mock_server):
+    """Same guarantee for the synchronous client."""
+    client = ecactus.Ecos(
+        url=hostile_url(mock_server, "series-null"), access_token="token"
+    )
+    assert client.get_today_device_data("device").metrics == []
+    assert client.get_history("device", 4).metrics == []
+
+    client.url = hostile_url(mock_server, "other-series-null")
+    [power] = client.get_today_device_data("device").metrics
+    assert power.home == 1.0
+    assert power.solar is None
+
+    client.url = hostile_url(mock_server, "insight-other-series-null")
+    insight = client.get_insight("device", 5)
+    assert insight.energy_timeseries is not None
+    [energy] = insight.energy_timeseries.metrics
+    assert energy.home == 1.0
+    assert energy.eps is None
+
+
+@pytest.mark.parametrize("scenario", WRONG_DATA)
+async def test_async_fault_events_not_an_object_raises_invalid_json(
+    mock_server, scenario
+):
+    """A fault event page that is not an object raises InvalidJsonError."""
+    client = ecactus.AsyncEcos(
+        url=hostile_url(mock_server, scenario), access_token="token"
+    )
+    with pytest.raises(InvalidJsonError):
+        await client.get_fault_events("device", *EVENT_PERIOD)
+
+
+@pytest.mark.parametrize("scenario", WRONG_DATA)
+def test_sync_fault_events_not_an_object_raises_invalid_json(mock_server, scenario):
+    """Same guarantee for the synchronous client."""
+    client = ecactus.Ecos(url=hostile_url(mock_server, scenario), access_token="token")
+    with pytest.raises(InvalidJsonError):
+        client.get_fault_events("device", *EVENT_PERIOD)
+
+
+@pytest.mark.parametrize("scenario", MALFORMED_EVENTS)
+async def test_async_malformed_events_raise_validation_error(mock_server, scenario):
+    """Malformed events raise a ValidationError.
+
+    A list as error code was looked up in the event catalog (TypeError), and a
+    number as event type was lowercased (AttributeError).
+    """
+    client = ecactus.AsyncEcos(
+        url=hostile_url(mock_server, scenario), access_token="token"
+    )
+    with pytest.raises(ValidationError):
+        await client.get_fault_events("device", *EVENT_PERIOD)
+
+
+@pytest.mark.parametrize("scenario", MALFORMED_EVENTS)
+def test_sync_malformed_events_raise_validation_error(mock_server, scenario):
+    """Same guarantee for the synchronous client."""
+    client = ecactus.Ecos(url=hostile_url(mock_server, scenario), access_token="token")
+    with pytest.raises(ValidationError):
+        client.get_fault_events("device", *EVENT_PERIOD)

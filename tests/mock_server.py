@@ -632,6 +632,109 @@ class EcosMockServer:
             status=200,
         )
 
+    async def handle_hostile(self, request: web.Request) -> web.Response:
+        """Return HTTP 200 with a successful response whose `data` is malformed.
+
+        Serves any API path under `/hostile/<scenario>/`; the `missing` scenario
+        has no `data` at all.
+        """
+        timestamp = "1740783600"
+        event = {"occurrenceTime": "2025-03-01 00:00:00"}
+        scenarios: dict[str, JSON] = {
+            "null": None,
+            "string": "data",
+            "list": [42],
+            "tokens-not-strings": {"accessToken": 42, "refreshToken": None},
+            "series-null": {
+                "energyConsumption": 1.0,
+                "solarPercent": 1.0,
+                "homePowerDps": None,
+                "homeEnergyDps": None,
+            },
+            "series-list": {
+                "energyConsumption": 1.0,
+                "solarPercent": 1.0,
+                "homePowerDps": [42],
+                "homeEnergyDps": [42],
+            },
+            "series-string": {
+                "energyConsumption": 1.0,
+                "solarPercent": 1.0,
+                "homePowerDps": "data",
+                "homeEnergyDps": "data",
+            },
+            "timestamp-not-a-number": {
+                "energyConsumption": 1.0,
+                "solarPercent": 1.0,
+                "homePowerDps": {"now": 1.0},
+                "homeEnergyDps": {"now": 1.0},
+            },
+            "other-series-null": {
+                "homePowerDps": {timestamp: 1.0},
+                "solarPowerDps": None,
+            },
+            "other-series-bool": {
+                "homePowerDps": {timestamp: 1.0},
+                "solarPowerDps": True,
+            },
+            "metrics-not-a-list": {"metrics": 42},
+            "insight-series-list": {
+                "selfPowered": 1,
+                "deviceRealtimeDto": [],
+                "deviceStatisticsDto": None,
+                "insightConsumptionDataDto": None,
+            },
+            "insight-consumption-list": {
+                "selfPowered": 1,
+                "deviceRealtimeDto": None,
+                "deviceStatisticsDto": None,
+                "insightConsumptionDataDto": [],
+            },
+            "insight-other-series-null": {
+                "selfPowered": 1,
+                "deviceRealtimeDto": None,
+                "deviceStatisticsDto": None,
+                "insightConsumptionDataDto": {
+                    "homeEnergyDps": {timestamp: 1.0},
+                    "epsDps": None,
+                },
+            },
+            "insight-other-series-number": {
+                "selfPowered": 1,
+                "deviceRealtimeDto": None,
+                "deviceStatisticsDto": None,
+                "insightConsumptionDataDto": {
+                    "homeEnergyDps": {timestamp: 1.0},
+                    "epsDps": 42,
+                },
+            },
+            "insight-metrics-not-a-list": {
+                "selfPowered": 1,
+                "deviceRealtimeDto": None,
+                "deviceStatisticsDto": None,
+                "insightConsumptionDataDto": {"metrics": 42},
+            },
+            "events-null": {"data": None},
+            "event-code-list": {"data": [{**event, "errorCode": ["event_0"]}]},
+            "event-type-number": {
+                "data": [{**event, "errorCode": "unknown_0", "eventType": 2}]
+            },
+        }
+        scenario = request.match_info["scenario"]
+        output: JSON = {"code": 0, "message": "success", "success": True}
+        if scenario != "missing":
+            output["data"] = scenarios[scenario]
+        return web.json_response(output, status=200)
+
+    async def handle_charset(self, request: web.Request) -> web.Response:
+        """Return HTTP 200 with a JSON content type naming the requested charset."""
+        charset = request.match_info["charset"]
+        return web.Response(
+            body=b'{"code": 0, "message": "success", "success": true, "data": {}}',
+            headers={"Content-Type": f"application/json; charset={charset}"},
+            status=200,
+        )
+
     async def catch_all(self, request: web.Request) -> web.Response:
         """Catch all endpoint."""
         # if request.path starts with /api/client/ then
@@ -692,6 +795,8 @@ class EcosMockServer:
                 web.post("/non-object", self.handle_non_object),
                 web.get("/invalid-json", self.handle_invalid_json),
                 web.get("/deep-json", self.handle_deep_json),
+                web.route("*", "/hostile/{scenario}/{path:.*}", self.handle_hostile),
+                web.get("/charset/{charset}", self.handle_charset),
                 web.route("*", "/+{path:.*}", self.catch_all),
             ]
         )
