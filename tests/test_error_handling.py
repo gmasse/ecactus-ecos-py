@@ -160,6 +160,15 @@ MALFORMED_EVENTS = ["events-null", "event-code-list", "event-type-number"]
 EVENT_PERIOD = (datetime(2025, 3, 1), datetime(2025, 3, 2))
 
 
+# List endpoints, whose `data` goes through an adapter rather than a model
+LIST_METHODS = [
+    ("list", "get_homes", ()),
+    ("list", "get_devices", ("home",)),
+    ("list", "get_all_devices", ()),
+    ("event-type-number", "get_fault_events", ("device", *EVENT_PERIOD)),
+]
+
+
 def hostile_url(mock_server, scenario):
     """Return the URL of an API whose responses carry the scenario's `data`."""
     return f"{mock_server.url}/hostile/{scenario}"
@@ -318,3 +327,27 @@ def test_sync_malformed_events_raise_validation_error(mock_server, scenario):
     client = ecactus.Ecos(url=hostile_url(mock_server, scenario), access_token="token")
     with pytest.raises(ValidationError):
         client.get_fault_events("device", *EVENT_PERIOD)
+
+
+@pytest.mark.parametrize(("scenario", "method", "args"), LIST_METHODS)
+async def test_async_list_error_hides_input(mock_server, scenario, method, args):
+    """The ValidationError of a list endpoint does not quote the data received.
+
+    The models keep their input out of error messages; a list is validated by
+    an adapter, the root of that validation, which has to carry the same setting.
+    """
+    client = ecactus.AsyncEcos(
+        url=hostile_url(mock_server, scenario), access_token="token"
+    )
+    with pytest.raises(ValidationError) as exc_info:
+        await getattr(client, method)(*args)
+    assert "input_value" not in str(exc_info.value)
+
+
+@pytest.mark.parametrize(("scenario", "method", "args"), LIST_METHODS)
+def test_sync_list_error_hides_input(mock_server, scenario, method, args):
+    """Same guarantee for the synchronous client."""
+    client = ecactus.Ecos(url=hostile_url(mock_server, scenario), access_token="token")
+    with pytest.raises(ValidationError) as exc_info:
+        getattr(client, method)(*args)
+    assert "input_value" not in str(exc_info.value)

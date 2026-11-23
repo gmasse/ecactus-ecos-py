@@ -5,7 +5,7 @@ import logging
 import time
 from typing import Any
 
-from pydantic import TypeAdapter
+from pydantic import ConfigDict, TypeAdapter
 
 from .base import _BaseEcos
 from .exceptions import (
@@ -32,10 +32,13 @@ from .model import (
 logger = logging.getLogger(__name__)
 
 # Anything but a list of objects in the `data` of a list endpoint raises a
-# ValidationError, as a malformed object does.
-_HOME_LIST = TypeAdapter(list[Home])
-_DEVICE_LIST = TypeAdapter(list[Device])
-_EVENT_LIST = TypeAdapter(list[Event])
+# ValidationError, as a malformed object does. An adapter is the root of its
+# validation, so it carries the setting that keeps the input out of the error
+# message, as the models do.
+_LIST_CONFIG = ConfigDict(hide_input_in_errors=True)
+_HOME_LIST = TypeAdapter(list[Home], config=_LIST_CONFIG)
+_DEVICE_LIST = TypeAdapter(list[Device], config=_LIST_CONFIG)
+_EVENT_LIST = TypeAdapter(list[Event], config=_LIST_CONFIG)
 
 
 class AsyncEcos(_BaseEcos):
