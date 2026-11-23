@@ -7,6 +7,7 @@ Thanks for your interest in improving the eCactus ECOS Python client! Contributi
 - **Target the `dev` branch.** Create your branch from `dev` and open pull requests against `dev`.
 - **`main` only receives releases and maintainer hotfixes.** Please do not open feature or fix PRs against it.
 - **Pull requests are squash-merged.** The PR title becomes the commit subject on `dev`, so please write it as a [Conventional Commit](https://www.conventionalcommits.org/en/v1.0.0/) (`fix: ...`, `feat(client): ...`).
+- **Mark breaking changes.** Add `!` to the title (`feat(model)!: ...`) and describe the change under `BREAKING CHANGE:` in the description. Declaring a field that the API already returns counts: it leaves `model_extra` and is renamed in `model_dump()`.
 
 ```bash
 git checkout dev
