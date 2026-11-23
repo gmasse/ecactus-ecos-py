@@ -397,7 +397,11 @@ class AsyncEcos(_BaseEcos):
             raise
 
     async def get_fault_events(
-        self, device_id: str, start_date: datetime, end_date: datetime
+        self,
+        device_id: str,
+        start_date: datetime,
+        end_date: datetime,
+        event_type: str = "",
     ) -> list[Event]:
         """Get fault events for a device.
 
@@ -405,6 +409,9 @@ class AsyncEcos(_BaseEcos):
             device_id: The device ID to get events for.
             start_date: The start date.
             end_date: The end date.
+            event_type: Filter by type: `"fault"`, `"alarm"`, `"event"` (state changes),
+                or `""` for all of them (default). The API rejects the request
+                without this parameter (HTTP 500, "eventType is null").
 
         Returns:
             A list of events.
@@ -430,6 +437,7 @@ class AsyncEcos(_BaseEcos):
                     "end": end_ts,
                     "pageSize": 1000000,  # large number to get all events in one call
                     "pageNum": 0,
+                    "type": event_type,
                 },
             )
         except ApiResponseError as err:
