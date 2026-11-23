@@ -142,7 +142,8 @@ class Device(_EcosModel):
         dsp1_software_version: DSP1 firmware version, or None if not reported.
         bms_vendor: Battery management system vendor, or None if not reported.
         first_install: Date of the first installation, or None if not reported.
-        safety_standard: Grid safety standard code, or None if not reported.
+        safety_standard: Grid safety standard code (1 = Germany VDE-AR-N 4105), or None if
+            not reported.
 
     The optional fields are returned by get_devices (``/v2/home/device/query``)
     but not by get_all_devices (``/home/device/list``).
@@ -905,7 +906,8 @@ class DeviceDetail(_EcosModel):
         first_install: Date of the first installation, or None if not reported.
         rated_power: Rated power as sent by the API (e.g., "13000W").
         battery_capacity: Battery capacity in kWh as sent by the API (e.g., "9.98").
-        safety_standard: Grid safety standard code, or None if not reported.
+        safety_standard: Grid safety standard code (1 = Germany VDE-AR-N 4105), or None if
+            not reported.
 
     """
 
