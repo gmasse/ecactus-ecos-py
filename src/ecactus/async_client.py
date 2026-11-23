@@ -34,6 +34,9 @@ from .model import (
     PowerMetrics,
     PowerTimeSeries,
     User,
+    WeatherDay,
+    WeatherHour,
+    WeatherNow,
     WeekEnergy,
 )
 
@@ -50,6 +53,8 @@ _DEVICE_LIST = TypeAdapter(list[Device], config=_ADAPTER_CONFIG)
 _EVENT_LIST = TypeAdapter(list[Event], config=_ADAPTER_CONFIG)
 _DEVICE_MODE_LIST = TypeAdapter(list[DeviceMode], config=_ADAPTER_CONFIG)
 _POWER_LIMIT = TypeAdapter(float | None, config=_ADAPTER_CONFIG)
+_WEATHER_HOURS = TypeAdapter(list[WeatherHour], config=_ADAPTER_CONFIG)
+_WEATHER_DAYS = TypeAdapter(list[WeatherDay], config=_ADAPTER_CONFIG)
 
 
 class AsyncEcos(_BaseEcos):
@@ -712,3 +717,87 @@ class AsyncEcos(_BaseEcos):
             "/api/client/ele/price/fixed/get", payload={"homeId": home_id}
         )
         return FixedPrice.model_validate(data) if data else None
+
+    @staticmethod
+    def _weather_location(longitude: float, latitude: float) -> dict[str, str]:
+        # The weather service takes "longitude,latitude"; without it the API answers
+        # 403, and swapped it returns empty values. Two decimals (about 1 km) are
+        # enough for weather and keep the request less precise than the home.
+        return {"location": f"{longitude:.2f},{latitude:.2f}"}
+
+    async def get_weather_now(self, longitude: float, latitude: float) -> WeatherNow:
+        """Get the current weather at a location, as shown in the ECOS app.
+
+        Args:
+            longitude: Longitude of the location in degrees.
+            latitude: Latitude of the location in degrees.
+
+        Returns:
+            The current weather; every field is None if the location is unknown
+            to the weather service (e.g. longitude and latitude swapped).
+
+        Raises:
+            UnauthorizedError: If the Authorization token is not valid.
+            ApiResponseError: If the API returns a non-successful response.
+
+        """
+        logger.info("Get current weather")
+        await self._ensure_login()
+        return WeatherNow.model_validate(
+            await self._async_get(
+                "/api/client/home/weather/now",
+                payload=self._weather_location(longitude, latitude),
+            )
+        )
+
+    async def get_weather_hourly(
+        self, longitude: float, latitude: float
+    ) -> list[WeatherHour]:
+        """Get the hourly weather forecast for the next 24 hours at a location.
+
+        Args:
+            longitude: Longitude of the location in degrees.
+            latitude: Latitude of the location in degrees.
+
+        Returns:
+            One entry per hour, empty if the location is unknown to the weather service.
+
+        Raises:
+            UnauthorizedError: If the Authorization token is not valid.
+            ApiResponseError: If the API returns a non-successful response.
+
+        """
+        logger.info("Get hourly weather forecast")
+        await self._ensure_login()
+        return _WEATHER_HOURS.validate_python(
+            await self._async_get(
+                "/api/client/home/weather/24h",
+                payload=self._weather_location(longitude, latitude),
+            )
+        )
+
+    async def get_weather_daily(
+        self, longitude: float, latitude: float
+    ) -> list[WeatherDay]:
+        """Get the daily weather forecast for the next 7 days at a location.
+
+        Args:
+            longitude: Longitude of the location in degrees.
+            latitude: Latitude of the location in degrees.
+
+        Returns:
+            One entry per day, empty if the location is unknown to the weather service.
+
+        Raises:
+            UnauthorizedError: If the Authorization token is not valid.
+            ApiResponseError: If the API returns a non-successful response.
+
+        """
+        logger.info("Get daily weather forecast")
+        await self._ensure_login()
+        return _WEATHER_DAYS.validate_python(
+            await self._async_get(
+                "/api/client/home/weather/7d",
+                payload=self._weather_location(longitude, latitude),
+            )
+        )

@@ -63,7 +63,6 @@ Tried with `homeId`, `deviceId` and a millisecond `timestamp`, as GET and POST:
 - `/api/client/customize/strategy/compare`, `.../compare/prices`,
   `.../strategy/preview` — 403 (AI strategy, likely only when enabled).
 - `/api/client/ele/price/retailer/price` — 403.
-- `/api/client/home/weather/now`, `/24h`, `/7d` — 403.
 - `/api/client/message/page` — 403 (`count_unread` works as POST).
 - `/api/client/problem_feedback/page`, `/detail` — 403 / not tried.
 - `/api/client/v2/device/single/device/detail`, `.../single/device/power_limit`

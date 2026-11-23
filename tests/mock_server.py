@@ -500,6 +500,84 @@ class EcosMockServer:
             }
         )
 
+    # Weather at a made-up location ("longitude,latitude" with two decimals)
+    _WEATHER_LOCATION = "1.00,2.00"
+
+    def _weather_response(
+        self, request: web.Request, data: JSON, empty: JSON
+    ) -> web.Response:
+        """Answer like the live API: 403 without location, empty values when swapped."""
+        if not self._is_authorized_request(request):
+            return EcosMockServer._unauthorized_response()
+        location = request.query.get("location")
+        if location is None:
+            return web.Response(status=403)
+        return EcosMockServer._success_response(
+            data=data if location == self._WEATHER_LOCATION else empty
+        )
+
+    async def handle_get_weather_now(self, request: web.Request) -> web.Response:
+        """Mock the current weather endpoint."""
+        keys = ["obsTime", "temp", "feelsLike", "icon", "text", "wind360", "windDir",
+                "windScale", "windSpeed", "humidity", "precip", "pressure", "vis",
+                "cloud", "dew"]  # fmt: skip
+        return self._weather_response(
+            request,
+            {
+                "obsTime": "2026-11-23T17:46+01:00",
+                "temp": "2",
+                "feelsLike": "-1",
+                "icon": "150",
+                "text": "Clear",
+                "wind360": "23",
+                "windDir": "NNE",
+                "windScale": "2",
+                "windSpeed": "9",
+                "humidity": "73",
+                "precip": "0.0",
+                "pressure": "1025",
+                "vis": "24",
+                "cloud": "26",
+                "dew": "-2",
+            },  # fmt: skip
+            dict.fromkeys(keys),
+        )
+
+    async def handle_get_weather_hourly(self, request: web.Request) -> web.Response:
+        """Mock the hourly weather forecast endpoint."""
+        hours = [
+            {
+                "fxTime": f"2026-11-23T{19 + i}:00+01:00",
+                "temp": str(-i),
+                "icon": "150",
+                "text": "Clear",
+                "wind360": "35",
+                "windDir": "NE",
+                "windScale": "1-3",
+                "windSpeed": "6",
+                "humidity": "72",
+                "pop": "0",
+                "precip": "0.0",
+                "pressure": "1011",
+                "cloud": "",
+                "dew": "-3",
+            }  # fmt: skip
+            for i in range(3)
+        ]
+        return self._weather_response(request, hours, [])
+
+    async def handle_get_weather_daily(self, request: web.Request) -> web.Response:
+        """Mock the daily weather forecast endpoint."""
+        day = {
+            "fxDate": "2026-11-23", "sunrise": "07:49", "sunset": "16:35",
+            "moonrise": "15:18", "moonset": "06:27", "moonPhase": "Waxing gibbous",
+            "tempMax": "4", "tempMin": "-6", "iconDay": "103", "textDay": "Partly Cloudy",
+            "iconNight": "153", "textNight": "Partly Cloudy", "windSpeedDay": "9",
+            "windSpeedNight": "6", "humidity": "80", "precip": "0.0", "pressure": "1022",
+            "vis": "25", "cloud": "1", "uvIndex": "2",
+        }  # fmt: skip
+        return self._weather_response(request, [day], [])
+
     async def handle_get_week_energy(self, request: web.Request) -> web.Response:
         """Mock home week energy endpoint."""
         if not self._is_authorized_request(request):
@@ -1033,6 +1111,9 @@ class EcosMockServer:
                 web.get(
                     "/api/client/v2/home/device/energy", self.handle_get_week_energy
                 ),
+                web.get("/api/client/home/weather/now", self.handle_get_weather_now),
+                web.get("/api/client/home/weather/24h", self.handle_get_weather_hourly),
+                web.get("/api/client/home/weather/7d", self.handle_get_weather_daily),
                 web.post(
                     "/api/client/home/events/backup/statistics",
                     self.handle_get_backup_statistics,

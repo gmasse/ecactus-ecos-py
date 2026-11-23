@@ -1,11 +1,18 @@
 """Data model for ECOS API."""
 
 from bisect import bisect_left
-from datetime import datetime
+from datetime import date, datetime
 import re
 from typing import ClassVar, cast
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 from typing_extensions import Annotated, Any, Self  # noqa: UP035
 
 
@@ -1239,3 +1246,147 @@ class FixedPrice(_EcosModel):
     feed_in_price: float | None = Field(alias="feedInPrice", default=None)
 
     model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+
+def _blank_to_none(value: Any) -> Any:
+    """Turn the empty string the weather service may send into None."""
+    return None if value == "" else value
+
+
+# A weather value: a number sent as a string (e.g. "2", "0.0"), None when missing.
+_WeatherNumber = Annotated[float | None, BeforeValidator(_blank_to_none)]
+
+
+class WeatherNow(_EcosModel):
+    """Represents the current weather at a location (`/home/weather/now`).
+
+    The data comes from the weather service used by the ECOS app. Units are metric:
+    °C, km/h, mm, hPa, km. Every field is None when the API knows nothing about the
+    location, e.g. when longitude and latitude are swapped.
+
+    Attributes:
+        observation_time: When the values were observed.
+        temperature: Air temperature in °C.
+        feels_like: Felt temperature in °C.
+        icon: Icon code of the weather service.
+        text: Short description (e.g. "Clear").
+        wind_direction_deg: Wind direction in degrees.
+        wind_direction: Wind direction as a compass point (e.g. "NNE").
+        wind_scale: Wind force on the Beaufort scale, as sent (e.g. "2" or "1-3").
+        wind_speed: Wind speed in km/h.
+        humidity: Relative humidity in percent.
+        precipitation: Precipitation in mm.
+        pressure: Air pressure in hPa.
+        visibility: Visibility in km.
+        cloud: Cloud cover in percent.
+        dew_point: Dew point in °C.
+
+    """
+
+    observation_time: datetime | None = Field(alias="obsTime", default=None)
+    temperature: _WeatherNumber = Field(alias="temp", default=None)
+    feels_like: _WeatherNumber = Field(alias="feelsLike", default=None)
+    icon: str | None = None
+    text: str | None = None
+    wind_direction_deg: _WeatherNumber = Field(alias="wind360", default=None)
+    wind_direction: str | None = Field(alias="windDir", default=None)
+    wind_scale: str | None = Field(alias="windScale", default=None)
+    wind_speed: _WeatherNumber = Field(alias="windSpeed", default=None)
+    humidity: _WeatherNumber = None
+    precipitation: _WeatherNumber = Field(alias="precip", default=None)
+    pressure: _WeatherNumber = None
+    visibility: _WeatherNumber = Field(alias="vis", default=None)
+    cloud: _WeatherNumber = None
+    dew_point: _WeatherNumber = Field(alias="dew", default=None)
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class WeatherHour(_EcosModel):
+    """Represents one hour of the weather forecast (`/home/weather/24h`).
+
+    Attributes:
+        forecast_time: Start of the forecast hour.
+        temperature: Air temperature in °C.
+        icon: Icon code of the weather service.
+        text: Short description.
+        wind_direction_deg: Wind direction in degrees.
+        wind_direction: Wind direction as a compass point.
+        wind_scale: Wind force on the Beaufort scale, as sent.
+        wind_speed: Wind speed in km/h.
+        humidity: Relative humidity in percent.
+        probability_of_precipitation: Probability of precipitation in percent.
+        precipitation: Precipitation in mm.
+        pressure: Air pressure in hPa.
+        cloud: Cloud cover in percent.
+        dew_point: Dew point in °C.
+
+    """
+
+    forecast_time: datetime | None = Field(alias="fxTime", default=None)
+    temperature: _WeatherNumber = Field(alias="temp", default=None)
+    icon: str | None = None
+    text: str | None = None
+    wind_direction_deg: _WeatherNumber = Field(alias="wind360", default=None)
+    wind_direction: str | None = Field(alias="windDir", default=None)
+    wind_scale: str | None = Field(alias="windScale", default=None)
+    wind_speed: _WeatherNumber = Field(alias="windSpeed", default=None)
+    humidity: _WeatherNumber = None
+    probability_of_precipitation: _WeatherNumber = Field(alias="pop", default=None)
+    precipitation: _WeatherNumber = Field(alias="precip", default=None)
+    pressure: _WeatherNumber = None
+    cloud: _WeatherNumber = None
+    dew_point: _WeatherNumber = Field(alias="dew", default=None)
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class WeatherDay(_EcosModel):
+    """Represents one day of the weather forecast (`/home/weather/7d`).
+
+    Attributes:
+        day: The forecast day.
+        temperature_min: Lowest temperature in °C.
+        temperature_max: Highest temperature in °C.
+        text_day: Short description of the day.
+        text_night: Short description of the night.
+        icon_day: Icon code for the day.
+        icon_night: Icon code for the night.
+        sunrise: Local time of sunrise, as sent (e.g. "07:49").
+        sunset: Local time of sunset, as sent.
+        moonrise: Local time of moonrise, as sent.
+        moonset: Local time of moonset, as sent.
+        moon_phase: Name of the moon phase.
+        wind_speed_day: Wind speed during the day in km/h.
+        wind_speed_night: Wind speed during the night in km/h.
+        humidity: Relative humidity in percent.
+        precipitation: Precipitation in mm.
+        pressure: Air pressure in hPa.
+        visibility: Visibility in km.
+        cloud: Cloud cover in percent.
+        uv_index: UV index.
+
+    """
+
+    day: date | None = Field(alias="fxDate", default=None)
+    temperature_min: _WeatherNumber = Field(alias="tempMin", default=None)
+    temperature_max: _WeatherNumber = Field(alias="tempMax", default=None)
+    text_day: str | None = Field(alias="textDay", default=None)
+    text_night: str | None = Field(alias="textNight", default=None)
+    icon_day: str | None = Field(alias="iconDay", default=None)
+    icon_night: str | None = Field(alias="iconNight", default=None)
+    sunrise: str | None = None
+    sunset: str | None = None
+    moonrise: str | None = None
+    moonset: str | None = None
+    moon_phase: str | None = Field(alias="moonPhase", default=None)
+    wind_speed_day: _WeatherNumber = Field(alias="windSpeedDay", default=None)
+    wind_speed_night: _WeatherNumber = Field(alias="windSpeedNight", default=None)
+    humidity: _WeatherNumber = None
+    precipitation: _WeatherNumber = Field(alias="precip", default=None)
+    pressure: _WeatherNumber = None
+    visibility: _WeatherNumber = Field(alias="vis", default=None)
+    cloud: _WeatherNumber = None
+    uv_index: _WeatherNumber = Field(alias="uvIndex", default=None)
+
+    model_config = ConfigDict(populate_by_name=True)
