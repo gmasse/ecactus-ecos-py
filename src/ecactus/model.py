@@ -953,7 +953,8 @@ class DeviceSettings(_EcosModel):
         min_capacity: Minimum battery level in percent.
         charge_use_mode: Charge use mode code.
         strategy_mode: Strategy mode code.
-        max_feed_in: Maximum feed-in setting (unit not documented).
+        max_feed_in: Feed-in limit in percent of the inverter's rated power (e.g. 31 on a
+            13 kW inverter = 4030 W, used for a 60 % grid export cap on 6.675 kWp of PV).
         feed_in_prohibition: Feed-in prohibition flag.
         discharge_to_grid_flag: Discharge-to-grid flag.
         eps_battery_min: Battery level reserved for EPS (backup) in percent.
