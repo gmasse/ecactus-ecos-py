@@ -610,6 +610,20 @@ class EcosMockServer:
         await asyncio.sleep(1.0)
         return self._success_response({"slept": True})
 
+    async def handle_drip(self, request: web.Request) -> web.StreamResponse:
+        """Send a success response in 10 pieces over `seconds` (tests the total timeout)."""
+        body = self._success_response({"dripped": True}).body
+        assert isinstance(body, bytes)
+        interval = float(request.query["seconds"]) / 10
+        step = -(-len(body) // 10)  # ceiling division: 10 pieces at most
+        response = web.StreamResponse(headers={"Content-Type": "application/json"})
+        response.content_length = len(body)
+        await response.prepare(request)
+        for start in range(0, len(body), step):
+            await asyncio.sleep(interval)
+            await response.write(body[start : start + step])
+        return response
+
     async def handle_malformed(self, request: web.Request) -> web.Response:
         """Return HTTP 200 with valid JSON that lacks the expected envelope keys."""
         return web.json_response({"foo": "bar"}, status=200)
@@ -687,6 +701,7 @@ class EcosMockServer:
                     self.handle_get_fault_events,
                 ),
                 web.get("/slow", self.handle_slow),
+                web.get("/drip", self.handle_drip),
                 web.get("/malformed", self.handle_malformed),
                 web.get("/non-object", self.handle_non_object),
                 web.post("/non-object", self.handle_non_object),

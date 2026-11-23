@@ -1,9 +1,13 @@
 """Base class for interacting with the ECOS API."""
 
 from collections.abc import AsyncIterable, Iterable
+import contextlib
 import ipaddress
 import json
 import logging
+import socket
+import threading
+import time
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
@@ -113,6 +117,59 @@ def _read_limited(chunks: Iterable[bytes]) -> bytes:
         if len(body) > MAX_RESPONSE_BYTES:
             raise _too_large()
     return bytes(body)
+
+
+def _read_before(response: "requests.Response", deadline: float | None) -> bytes:
+    """Read a `requests` response body, up to MAX_RESPONSE_BYTES, before `deadline`.
+
+    `requests` applies its timeout to each socket read, not to the whole body: a
+    server sending one byte at a time would hold the call for as long as it likes.
+    At `deadline`, a `time.monotonic()` value, a timer shuts the socket down, which
+    ends the read wherever it waits, decompression included. A response with no
+    socket behind it, as under mock libraries, is read without a timer.
+
+    Raises:
+        requests.exceptions.ReadTimeout: If the body is not read by `deadline`.
+        InvalidJsonError: If the body is larger than MAX_RESPONSE_BYTES.
+
+    """
+    import requests  # noqa: PLC0415
+
+    chunks = response.iter_content(_CHUNK_SIZE)
+    if deadline is None:
+        return _read_limited(chunks)
+    try:  # io.UnsupportedOperation is an OSError
+        borrowed = socket.socket(fileno=response.raw.fileno())
+    except OSError:  # no socket behind the response
+        return _read_limited(chunks)
+    # The response closes its descriptor at the end of the body, possibly before the
+    # timer is cancelled, and the system can then give that number to another socket:
+    # the timer works on a duplicate of its own, which keeps the connection reachable.
+    try:
+        sock = borrowed.dup()
+    finally:
+        borrowed.detach()
+    expired = threading.Event()
+
+    def expire() -> None:
+        expired.set()
+        with contextlib.suppress(OSError):  # the peer has already closed it
+            sock.shutdown(socket.SHUT_RDWR)
+
+    with sock:  # closed once the timer has stopped
+        timer = threading.Timer(deadline - time.monotonic(), expire)
+        timer.start()
+        try:
+            return _read_limited(chunks)
+        finally:
+            timer.cancel()
+            timer.join()
+            # The shutdown ends the read with an error or a truncated body: either
+            # way, the call ran out of time.
+            if expired.is_set():
+                raise requests.exceptions.ReadTimeout(
+                    "Read timed out before the end of the response body"
+                )
 
 
 async def _async_read_limited(chunks: AsyncIterable[bytes]) -> bytes:
@@ -229,8 +286,11 @@ class _BaseEcos:
                 Must use `https`, except on a loopback host (`localhost`, `127.0.0.1`, `::1`).
             access_token: The access token for authentication with the ECOS API.
             refresh_token: The refresh token for authentication with the ECOS API.
-            timeout: Per-request timeout in seconds (total). Applied to every HTTP
-                call. `None` disables the timeout. Defaults to 30 seconds.
+            timeout: Per-request timeout in seconds, applied to every HTTP call: the
+                whole call must end within it. `Ecos` has one gap: until the response
+                headers arrive, `requests` bounds only each connection attempt and
+                each read, so a server sending its headers slowly can hold the call
+                longer. `None` disables the timeout. Defaults to 30 seconds.
 
         Raises:
             InitializationError: If `datacenter` is not one of `CN`, `EU`, or `AU` and `url` is not provided.
@@ -289,6 +349,7 @@ class _BaseEcos:
         """
         import requests  # noqa: PLC0415
 
+        deadline = None if self.timeout is None else time.monotonic() + self.timeout
         api_path = api_path.lstrip("/")  # remove / from beginning of api_path
         full_url = self.url + "/" + api_path
         logger.debug("API GET call: %s", full_url)
@@ -307,9 +368,7 @@ class _BaseEcos:
             hooks={"response": _reject_redirect},
         ) as response:
             status = response.status_code
-            text = _decode(
-                _read_limited(response.iter_content(_CHUNK_SIZE)), response.encoding
-            )
+            text = _decode(_read_before(response, deadline), response.encoding)
         _log_response("GET", api_path, status, text)
         return _parse_response(status, text)
 
@@ -332,6 +391,7 @@ class _BaseEcos:
         """
         import requests  # noqa: PLC0415
 
+        deadline = None if self.timeout is None else time.monotonic() + self.timeout
         api_path = api_path.lstrip("/")  # remove / from beginning of api_path
         full_url = self.url + "/" + api_path
         logger.debug("API POST call: %s", full_url)
@@ -350,9 +410,7 @@ class _BaseEcos:
             hooks={"response": _reject_redirect},
         ) as response:
             status = response.status_code
-            text = _decode(
-                _read_limited(response.iter_content(_CHUNK_SIZE)), response.encoding
-            )
+            text = _decode(_read_before(response, deadline), response.encoding)
         _log_response("POST", api_path, status, text)
         return _parse_response(status, text)
 
