@@ -156,18 +156,19 @@ class Device(_EcosModel):
         latitude: Latitude of the device's location.
         device_type: Unknown (e.g., "XX-XXX123").
         master_int: Master status number.
-        wifi_sn: WiFi dongle serial number, or None if not reported.
-        resource_series_id: Resource series ID, or None if not reported.
-        resource_type_id: Resource type ID, or None if not reported.
-        ems_software_version: EMS firmware version, or None if not reported.
-        dsp1_software_version: DSP1 firmware version, or None if not reported.
-        bms_vendor: Battery management system vendor, or None if not reported.
-        first_install: Date of the first installation, or None if not reported.
-        safety_standard_int: Grid safety standard number (1 = Germany VDE-AR-N 4105), or
-            None if not reported.
-
-    The optional fields are returned by get_devices (`/v2/home/device/query`)
-    but not by get_all_devices (`/home/device/list`).
+        wifi_sn: WiFi dongle serial number. Only reported by get_devices, None otherwise.
+        resource_series_id: Resource series ID. Only reported by get_devices, None otherwise.
+        resource_type_id: Resource type ID. Only reported by get_devices, None otherwise.
+        ems_software_version: EMS firmware version. Only reported by get_devices, None
+            otherwise.
+        dsp1_software_version: DSP1 firmware version. Only reported by get_devices, None
+            otherwise.
+        bms_vendor: Battery management system vendor. Only reported by get_devices, None
+            otherwise.
+        first_install: Date of the first installation. Only reported by get_devices, None
+            otherwise.
+        safety_standard_int: Grid safety standard number (1 = Germany VDE-AR-N 4105). Only
+            reported by get_devices, None otherwise.
 
     """
 
