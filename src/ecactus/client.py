@@ -2,6 +2,7 @@
 
 from datetime import datetime
 import logging
+import math
 import time
 from typing import Any, Literal
 
@@ -34,6 +35,9 @@ from .model import (
     PowerMetrics,
     PowerTimeSeries,
     User,
+    WeatherDay,
+    WeatherHour,
+    WeatherNow,
     WeekEnergy,
 )
 
@@ -50,6 +54,8 @@ _DEVICE_LIST = TypeAdapter(list[Device], config=_ADAPTER_CONFIG)
 _EVENT_LIST = TypeAdapter(list[Event], config=_ADAPTER_CONFIG)
 _DEVICE_MODE_LIST = TypeAdapter(list[DeviceMode], config=_ADAPTER_CONFIG)
 _POWER_LIMIT = TypeAdapter(float | None, config=_ADAPTER_CONFIG)
+_WEATHER_HOURS = TypeAdapter(list[WeatherHour], config=_ADAPTER_CONFIG)
+_WEATHER_DAYS = TypeAdapter(list[WeatherDay], config=_ADAPTER_CONFIG)
 
 
 class Ecos(_BaseEcos):
@@ -745,3 +751,113 @@ class Ecos(_BaseEcos):
             "/api/client/ele/price/fixed/get", payload={"homeId": home_id}
         )
         return FixedPrice.model_validate(data) if data else None
+
+    @staticmethod
+    def _weather_location(longitude: float, latitude: float) -> dict[str, str]:
+        """Build the `location` parameter of the weather endpoints.
+
+        The weather service takes "longitude,latitude"; without it the API answers 403.
+        Two decimals (about 1 km) are enough for weather and keep the request less
+        precise than the home.
+
+        Raises:
+            ValueError: If a coordinate is not finite or out of range.
+
+        """
+        if not (math.isfinite(longitude) and -180 <= longitude <= 180):
+            raise ValueError(f"longitude must be between -180 and 180, got {longitude}")
+        if not (math.isfinite(latitude) and -90 <= latitude <= 90):
+            raise ValueError(f"latitude must be between -90 and 90, got {latitude}")
+        return {"location": f"{longitude:.2f},{latitude:.2f}"}
+
+    def get_weather_now(self, *, longitude: float, latitude: float) -> WeatherNow:
+        """Get the current weather at a location, as shown in the ECOS app.
+
+        Args:
+            longitude: Longitude of the location in degrees (-180 to 180).
+            latitude: Latitude of the location in degrees (-90 to 90).
+
+        Both are rounded to two decimals (about 1 km) before they are sent. They are
+        not written to the `ecactus` debug log, but they are part of the request URL,
+        so they can appear in a `requests` connection error message and in the DEBUG
+        log of `urllib3`.
+
+        Returns:
+            The current weather; every field is None if the weather service does not
+                know the location.
+
+        Raises:
+            ValueError: If a coordinate is not finite or out of range.
+            UnauthorizedError: If the Authorization token is not valid.
+            ApiResponseError: If the API returns a non-successful response.
+            pydantic.ValidationError: If the response data does not have the expected shape.
+
+        """
+        logger.info("Get current weather")
+        location = self._weather_location(longitude, latitude)
+        self._ensure_login()
+        return WeatherNow.model_validate(
+            self._get("/api/client/home/weather/now", payload=location)
+        )
+
+    def get_weather_hourly(
+        self, *, longitude: float, latitude: float
+    ) -> list[WeatherHour]:
+        """Get the hourly weather forecast for the next 24 hours at a location.
+
+        Args:
+            longitude: Longitude of the location in degrees (-180 to 180).
+            latitude: Latitude of the location in degrees (-90 to 90).
+
+        Both are rounded to two decimals (about 1 km) before they are sent. They are
+        not written to the `ecactus` debug log, but they are part of the request URL,
+        so they can appear in a `requests` connection error message and in the DEBUG
+        log of `urllib3`.
+
+        Returns:
+            One entry per hour, empty if the weather service does not know the location.
+
+        Raises:
+            ValueError: If a coordinate is not finite or out of range.
+            UnauthorizedError: If the Authorization token is not valid.
+            ApiResponseError: If the API returns a non-successful response.
+            pydantic.ValidationError: If the response data does not have the expected shape.
+
+        """
+        logger.info("Get hourly weather forecast")
+        location = self._weather_location(longitude, latitude)
+        self._ensure_login()
+        return _WEATHER_HOURS.validate_python(
+            self._get("/api/client/home/weather/24h", payload=location)
+        )
+
+    def get_weather_daily(
+        self, *, longitude: float, latitude: float
+    ) -> list[WeatherDay]:
+        """Get the daily weather forecast for the next 7 days at a location.
+
+        Args:
+            longitude: Longitude of the location in degrees (-180 to 180).
+            latitude: Latitude of the location in degrees (-90 to 90).
+
+        Both are rounded to two decimals (about 1 km) before they are sent. They are
+        not written to the `ecactus` debug log, but they are part of the request URL,
+        so they can appear in a `requests` connection error message and in the DEBUG
+        log of `urllib3`.
+
+        Returns:
+            One entry per day, empty if the weather service does not know the location.
+
+        Raises:
+            ValueError: If a coordinate is not finite or out of range.
+            UnauthorizedError: If the Authorization token is not valid.
+            ApiResponseError: If the API returns a non-successful response.
+            pydantic.ValidationError: If the response data does not have the expected shape.
+
+        """
+        logger.info("Get daily weather forecast")
+        location = self._weather_location(longitude, latitude)
+        self._ensure_login()
+        return _WEATHER_DAYS.validate_python(
+            self._get("/api/client/home/weather/7d", payload=location)
+        )
