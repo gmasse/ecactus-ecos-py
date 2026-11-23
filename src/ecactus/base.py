@@ -1,9 +1,11 @@
 """Base class for interacting with the ECOS API."""
 
 from collections.abc import AsyncIterable, Iterable
+import ipaddress
 import json
 import logging
 from typing import Any
+from urllib.parse import urlsplit
 
 from .exceptions import (
     ApiResponseError,
@@ -143,6 +145,18 @@ def _parse_response(status: int, text: str) -> JSON:
     return body.get("data")
 
 
+def _is_loopback(host: str | None) -> bool:
+    """Tell whether a URL host is `localhost` or a loopback IP address."""
+    if host is None:
+        return False
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:  # a host name, not an IP address
+        return False
+
+
 class _BaseEcos:
     """Base class for interacting with the ECOS API."""
 
@@ -166,6 +180,7 @@ class _BaseEcos:
             datacenter: The location of the ECOS API datacenter.
                 Can be one of `CN`, `EU`, or `AU`.
             url: The URL of the ECOS API. If specified, `datacenter` is ignored.
+                Must use `https`, except on a loopback host (`localhost`, `127.0.0.1`, `::1`).
             access_token: The access token for authentication with the ECOS API.
             refresh_token: The refresh token for authentication with the ECOS API.
             timeout: Per-request timeout in seconds (total). Applied to every HTTP
@@ -173,6 +188,7 @@ class _BaseEcos:
 
         Raises:
             InitializationError: If `datacenter` is not one of `CN`, `EU`, or `AU` and `url` is not provided.
+            InitializationError: If `url` does not use `https` and its host is not a loopback address.
 
         """
         logger.info("Initializing session")
@@ -197,6 +213,15 @@ class _BaseEcos:
                 )
             self.url = datacenters[datacenter]
         else:  # url specified, ignore datacenter
+            # Plain http would send the email and password in clear; loopback stays
+            # allowed for local test servers.
+            parts = urlsplit(url)
+            if parts.scheme != "https" and not (
+                parts.scheme == "http" and _is_loopback(parts.hostname)
+            ):
+                raise InitializationError(
+                    "url must use https (http is only accepted on a loopback host)"
+                )
             self.url = url.rstrip("/")  # remove trailing / from url
 
     def _get(self, api_path: str, payload: dict[str, Any] = {}) -> JSON:
