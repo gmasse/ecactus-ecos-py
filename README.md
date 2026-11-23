@@ -69,7 +69,8 @@ A set of ready-to-use scripts is available in the `examples/` directory.
 
 The library logs through the standard `logging` module, under the `ecactus` logger.
 At `DEBUG` level it logs every API call and response, with tokens shortened to their
-last 4 characters and personal data (email, phone, location) masked:
+last 4 characters and passwords, secrets and personal data (email, phone, names,
+serial numbers, location) masked, home and device IDs left in clear:
 
 ```python
 import logging

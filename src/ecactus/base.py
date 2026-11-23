@@ -33,33 +33,55 @@ JSON = Any
 wire_logger = logging.getLogger("ecactus.wire")
 wire_logger.setLevel(logging.WARNING)
 
-# Response keys whose value is masked in the `ecactus` debug log. A sensitive
-# key the API adds later goes through in clear until it is listed here.
-_TOKEN_KEYS = frozenset({"accessToken", "refreshToken"})
+# Response keys whose value is masked in the `ecactus` debug log, compared
+# case-insensitively. A key containing a secret marker, or named in the personal
+# list, is masked whole; one containing "token", or named "authorization", is a
+# token. Any other key goes through in clear: a sensitive field the API adds later
+# (a personal one, or a credential such as `apiKey` or `sessionId`) is logged as
+# is until it is listed here. Home and device IDs stay in clear on purpose: the
+# INFO log names them anyway, and a debugging session needs them.
+_SECRET_MARKERS = ("password", "secret")
 _PERSONAL_KEYS = frozenset(
-    {"password", "email", "phone", "username", "lat", "lon", "latitude", "longitude"}
+    {
+        "email",
+        "phone",
+        "username",
+        "nickname",
+        "homename",
+        "devicealiasname",
+        "devicesn",
+        "wifisn",
+        "lat",
+        "lon",
+        "latitude",
+        "longitude",
+    }
 )
 
 
-def _redact(value: JSON) -> JSON:
-    """Return a copy of a decoded JSON body with its sensitive values masked.
+def _redact_item(key: str, item: JSON) -> JSON:
+    """Return the value of a JSON object member, masked if its key is sensitive.
 
     A token keeps its last 4 characters, so that a debugging session can still
     tell whether it changed after a login.
     """
+    name = key.casefold()
+    if name in _PERSONAL_KEYS or any(marker in name for marker in _SECRET_MARKERS):
+        return "<REDACTED>"
+    if "token" in name or name == "authorization":
+        if isinstance(item, str) and len(item) > 8:
+            return "…" + item[-4:]
+        return "<REDACTED>"
+    return _redact(item)
+
+
+def _redact(value: JSON) -> JSON:
+    """Return a copy of a decoded JSON body with its sensitive values masked."""
     if isinstance(value, list):
         return [_redact(item) for item in value]
     if not isinstance(value, dict):
         return value
-    redacted: dict[str, JSON] = {}
-    for key, item in value.items():
-        if key in _TOKEN_KEYS and isinstance(item, str) and len(item) > 8:
-            redacted[key] = "…" + item[-4:]
-        elif key in _TOKEN_KEYS or key in _PERSONAL_KEYS:
-            redacted[key] = "<REDACTED>"
-        else:
-            redacted[key] = _redact(item)
-    return redacted
+    return {key: _redact_item(key, item) for key, item in value.items()}
 
 
 def _log_response(method: str, api_path: str, status: int, text: str) -> None:
