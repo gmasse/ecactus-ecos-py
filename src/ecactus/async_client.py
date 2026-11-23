@@ -3,7 +3,7 @@
 from datetime import datetime
 import logging
 import time
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import ConfigDict, TypeAdapter
 
@@ -125,6 +125,7 @@ class AsyncEcos(_BaseEcos):
         Raises:
             UnauthorizedError: If the Authorization token is not valid.
             ApiResponseError: If the API returns a non-successful response.
+            pydantic.ValidationError: If the response data does not have the expected shape.
 
         """
         logger.info("Get user")
@@ -142,6 +143,7 @@ class AsyncEcos(_BaseEcos):
         Raises:
             UnauthorizedError: If the Authorization token is not valid.
             ApiResponseError: If the API returns a non-successful response.
+            pydantic.ValidationError: If the response data does not have the expected shape.
 
         """
         logger.info("Get home list")
@@ -163,6 +165,7 @@ class AsyncEcos(_BaseEcos):
             HomeDoesNotExistError: If the home id is not correct.
             UnauthorizedError: If the Authorization token is not valid.
             ApiResponseError: If the API returns a non-successful response.
+            pydantic.ValidationError: If the response data does not have the expected shape.
 
         """
         logger.info("Get devices for home %s", home_id)
@@ -187,6 +190,7 @@ class AsyncEcos(_BaseEcos):
         Raises:
             UnauthorizedError: If the Authorization token is not valid.
             ApiResponseError: If the API returns a non-successful response.
+            pydantic.ValidationError: If the response data does not have the expected shape.
 
         """
         logger.info("Get devices for every homes")
@@ -208,6 +212,7 @@ class AsyncEcos(_BaseEcos):
             UnauthorizedDeviceError: If the device is not authorized or unknown.
             UnauthorizedError: If the Authorization token is not valid.
             ApiResponseError: If the API returns a non-successful response.
+            pydantic.ValidationError: If the response data does not have the expected shape.
 
         """
         logger.info("Get current day data for device %s", device_id)
@@ -237,6 +242,7 @@ class AsyncEcos(_BaseEcos):
             HomeDoesNotExistError: If the home id is not correct.
             UnauthorizedError: If the Authorization token is not valid.
             ApiResponseError: If the API returns a non-successful response.
+            pydantic.ValidationError: If the response data does not have the expected shape.
 
         """
         logger.info("Get realtime data for home %s", home_id)
@@ -265,6 +271,7 @@ class AsyncEcos(_BaseEcos):
             UnauthorizedDeviceError: If the device is not authorized or unknown.
             UnauthorizedError: If the Authorization token is not valid.
             ApiResponseError: If the API returns a non-successful response.
+            pydantic.ValidationError: If the response data does not have the expected shape.
 
         """
         logger.info("Get realtime data for device %s", device_id)
@@ -305,6 +312,7 @@ class AsyncEcos(_BaseEcos):
             ParameterVerificationFailedError: If a parameter is not valid (`period_type` number for example)
             UnauthorizedError: If the Authorization token is not valid.
             ApiResponseError: If the API returns a non-successful response.
+            pydantic.ValidationError: If the response data does not have the expected shape.
 
         """
         logger.info("Get history for device %s", device_id)
@@ -361,6 +369,7 @@ class AsyncEcos(_BaseEcos):
             ParameterVerificationFailedError: If a parameter is not valid (`period_type` number for example)
             UnauthorizedError: If the Authorization token is not valid.
             ApiResponseError: If the API returns a non-successful response.
+            pydantic.ValidationError: If the response data does not have the expected shape.
 
         """
         logger.info("Get insight for device %s", device_id)
@@ -393,14 +402,23 @@ class AsyncEcos(_BaseEcos):
             raise
 
     async def get_fault_events(
-        self, device_id: str, start_date: datetime, end_date: datetime
+        self,
+        device_id: str,
+        start_date: datetime,
+        end_date: datetime,
+        *,
+        event_type: Literal["fault", "alarm", "event"] | None = None,
     ) -> list[Event]:
-        """Get fault events for a device.
+        """Get the events of a device: faults, alarms and state changes.
+
+        All three types are returned unless `event_type` filters them.
 
         Args:
             device_id: The device ID to get events for.
             start_date: The start date.
             end_date: The end date.
+            event_type: Only return this type: `"fault"`, `"alarm"` or `"event"`
+                (state changes such as "Grid Connected"). None returns all of them.
 
         Returns:
             A list of events.
@@ -410,6 +428,7 @@ class AsyncEcos(_BaseEcos):
             UnauthorizedError: If the Authorization token is not valid.
             ApiResponseError: If the API returns a non-successful response.
             InvalidJsonError: If the response is not an object.
+            pydantic.ValidationError: If the response data does not have the expected shape.
 
         """
         logger.info("Get events for device %s", device_id)
@@ -425,6 +444,9 @@ class AsyncEcos(_BaseEcos):
                     "end": end_ts,
                     "pageSize": 1000000,  # large number to get all events in one call
                     "pageNum": 0,
+                    # Required: without it, or with null, the API answers HTTP 500
+                    # "parameter eventType is null" (EU, 2026-11-23). "" selects all types.
+                    "type": event_type or "",
                 },
             )
         except ApiResponseError as err:
@@ -450,6 +472,7 @@ class AsyncEcos(_BaseEcos):
         Raises:
             UnauthorizedError: If the Authorization token is not valid.
             ApiResponseError: If the API returns a non-successful response.
+            pydantic.ValidationError: If the response data does not have the expected shape.
 
         """
         logger.info("Get detail for device %s", device_id)
@@ -473,6 +496,7 @@ class AsyncEcos(_BaseEcos):
         Raises:
             UnauthorizedError: If the Authorization token is not valid.
             ApiResponseError: If the API returns a non-successful response.
+            pydantic.ValidationError: If the response data does not have the expected shape.
 
         """
         logger.info("Get settings for device %s", device_id)
@@ -495,6 +519,7 @@ class AsyncEcos(_BaseEcos):
         Raises:
             UnauthorizedError: If the Authorization token is not valid.
             ApiResponseError: If the API returns a non-successful response.
+            pydantic.ValidationError: If the response data does not have the expected shape.
 
         """
         logger.info("Get device modes for home %s", home_id)
@@ -519,6 +544,7 @@ class AsyncEcos(_BaseEcos):
         Raises:
             UnauthorizedError: If the Authorization token is not valid.
             ApiResponseError: If the API returns a non-successful response.
+            pydantic.ValidationError: If the response data does not have the expected shape.
 
         """
         logger.info("Get power limit for device %s", device_id)
@@ -572,6 +598,7 @@ class AsyncEcos(_BaseEcos):
             ParameterVerificationFailedError: If the day is not available (e.g. a future day with `realtime`).
             UnauthorizedError: If the Authorization token is not valid.
             ApiResponseError: If the API returns a non-successful response.
+            pydantic.ValidationError: If the response data does not have the expected shape.
 
         """
         return await self._get_forecast("pv", home_id, day, realtime)
@@ -595,6 +622,7 @@ class AsyncEcos(_BaseEcos):
             ParameterVerificationFailedError: If the day is not available.
             UnauthorizedError: If the Authorization token is not valid.
             ApiResponseError: If the API returns a non-successful response.
+            pydantic.ValidationError: If the response data does not have the expected shape.
 
         """
         return await self._get_forecast("load", home_id, day, realtime)
@@ -611,6 +639,7 @@ class AsyncEcos(_BaseEcos):
         Raises:
             UnauthorizedError: If the Authorization token is not valid.
             ApiResponseError: If the API returns a non-successful response.
+            pydantic.ValidationError: If the response data does not have the expected shape.
 
         """
         logger.info("Get cost info for home %s", home_id)
@@ -634,6 +663,7 @@ class AsyncEcos(_BaseEcos):
             HomeDoesNotExistError: If the home id is not correct.
             UnauthorizedError: If the Authorization token is not valid.
             ApiResponseError: If the API returns a non-successful response.
+            pydantic.ValidationError: If the response data does not have the expected shape.
 
         """
         logger.info("Get week energy for home %s", home_id)
@@ -665,6 +695,7 @@ class AsyncEcos(_BaseEcos):
         Raises:
             UnauthorizedError: If the Authorization token is not valid.
             ApiResponseError: If the API returns a non-successful response.
+            pydantic.ValidationError: If the response data does not have the expected shape.
 
         """
         logger.info("Get backup statistics for device %s", device_id)
@@ -689,6 +720,7 @@ class AsyncEcos(_BaseEcos):
         Raises:
             UnauthorizedError: If the Authorization token is not valid.
             ApiResponseError: If the API returns a non-successful response.
+            pydantic.ValidationError: If the response data does not have the expected shape.
 
         """
         logger.info("Get unread message count")
@@ -709,6 +741,7 @@ class AsyncEcos(_BaseEcos):
         Raises:
             UnauthorizedError: If the Authorization token is not valid.
             ApiResponseError: If the API returns a non-successful response.
+            pydantic.ValidationError: If the response data does not have the expected shape.
 
         """
         logger.info("Get fixed price for home %s", home_id)

@@ -67,6 +67,17 @@ jobs:
           # Already run in previous test job
           - os: ubuntu-latest
             python-version: '3.11'
+          # The library is pure Python: Windows and macOS only run the oldest
+          # and newest versions, which also keeps few jobs on the scarce macOS
+          # runners.
+          - os: windows-latest
+            python-version: '3.12'
+          - os: windows-latest
+            python-version: '3.13'
+          - os: macos-latest
+            python-version: '3.12'
+          - os: macos-latest
+            python-version: '3.13'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     permissions:
@@ -109,7 +120,13 @@ jobs:
   # runner still left full_tests at success. full_tests is skipped on push by
   # design, and skipped on a pull request only when test failed, which already
   # fails this job.
+  #
+  # On push it reports as "ci-ok (push)": a branch of this repository gets a
+  # push run next to its pull request run, and a push run's "ci-ok" would
+  # satisfy the ruleset in seconds, before full_tests has run. Skipping the job
+  # on push would not do: a skipped required check counts as passed.
   ci-ok:
+    name: ${{ github.event_name == 'push' && 'ci-ok (push)' || 'ci-ok' }}
     if: ${{ always() }}
     needs: [test, full_tests, zizmor]
     runs-on: ubuntu-latest
