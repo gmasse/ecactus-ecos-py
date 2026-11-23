@@ -11,7 +11,7 @@
 - [ ] Find and implement other devices type than inverter (ie battery, charger, ...)
 - [ ] Implement other known API endpoints ([list](#uncovered-endpoints))
 - [x] Implement uncovered errors ([list](#uncovered-errors))
-- [ ] Create Enums for attributes `type`, `relation_type`, `state`, `master` in class `Home`, `Device`
+- [ ] Create Enums for attributes `type`, `relation_type`, `state`, `master` in class `Home`, `Device`, and `charge_use_mode`, `strategy_mode`, `safety_standard` in class `Device`, `DeviceDetail`, `DeviceSettings`, `DeviceMode`
 
 ## 📌 Low Priority
 - [ ] Identify and document any new API endpoints

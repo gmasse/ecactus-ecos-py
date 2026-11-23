@@ -83,6 +83,33 @@ def test_sync_debug_log_redacts_personal_identifiers(mock_server, caplog):
     assert "'emsSoftwareVersion': '000-00000-00'" in log
 
 
+async def test_async_debug_log_redacts_device_detail_and_modes(mock_server, caplog):
+    """The device name and the accounts bound to a device are masked."""
+    caplog.set_level(logging.DEBUG, logger="ecactus")
+    client = ecactus.AsyncEcos(email=LOGIN, password=PASSWORD, url=mock_server.url)
+    await client.get_device_detail("1234567890123456789")
+    await client.get_device_modes("9876543210987654321")
+    log = _library_log(caplog)
+    for key in ("name", "account", "deviceName", "deviceSn", "wifiSn"):
+        assert f"'{key}': '<REDACTED>'" in log
+    for value in ("My Device", "user@example.com", "WIFI000000000001"):
+        assert value not in log
+    assert "'deviceModel': 'XX-XXX123'" in log
+
+
+def test_sync_debug_log_redacts_device_detail_and_modes(mock_server, caplog):
+    """Same guarantee for the synchronous client."""
+    caplog.set_level(logging.DEBUG, logger="ecactus")
+    client = ecactus.Ecos(email=LOGIN, password=PASSWORD, url=mock_server.url)
+    client.get_device_detail("1234567890123456789")
+    client.get_device_modes("9876543210987654321")
+    log = _library_log(caplog)
+    for key in ("name", "account", "deviceName"):
+        assert f"'{key}': '<REDACTED>'" in log
+    for value in ("My Device", "user@example.com"):
+        assert value not in log
+
+
 @pytest.mark.parametrize(
     "key",
     ["accessToken", "token", "access_token", "REFRESH_TOKEN", "Authorization"],

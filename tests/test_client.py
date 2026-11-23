@@ -174,7 +174,7 @@ def test_get_devices(client, bad_client):
     assert devices[0].dsp1_software_version == "111-11111-11"
     assert devices[0].bms_vendor == "VENDOR"
     assert devices[0].first_install == datetime.fromtimestamp(1700000000)
-    assert devices[0].safety_standard == 1
+    assert devices[0].safety_standard_int == 1
 
 
 def test_get_all_devices(client, bad_client):
@@ -340,7 +340,7 @@ def test_get_device_modes(client, bad_client):
     with pytest.raises(UnauthorizedError):
         bad_client.get_device_modes(home_id=0)
     modes = client.get_device_modes(home_id=9876543210987654321)
-    assert modes[0].charge_use_mode == 0
+    assert modes[0].charge_use_mode_int == 0
     assert modes[0].is_main is None
 
 
@@ -357,12 +357,12 @@ def test_get_pv_and_load_forecast(client, bad_client):
     with pytest.raises(UnauthorizedError):
         bad_client.get_pv_forecast(home_id=0, day=now)
     pv = client.get_pv_forecast(home_id=9876543210987654321, day=now)
-    assert [p.power for p in pv.points] == [0.0, 100.0, 200.0, 300.0]
-    assert pv.points[0].timestamp < pv.points[1].timestamp
+    assert [p.power for p in pv.metrics] == [0.0, 100.0, 200.0, 300.0]
+    assert pv.metrics[0].timestamp < pv.metrics[1].timestamp
     load = client.get_load_forecast(
         home_id=9876543210987654321, day=now - timedelta(hours=1), realtime=True
     )
-    assert len(load.points) == 4
+    assert len(load.metrics) == 4
     with pytest.raises(ParameterVerificationFailedError):
         client.get_pv_forecast(
             home_id=9876543210987654321, day=now + timedelta(days=1), realtime=True

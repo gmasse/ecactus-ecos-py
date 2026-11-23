@@ -163,10 +163,10 @@ class Device(_EcosModel):
         dsp1_software_version: DSP1 firmware version, or None if not reported.
         bms_vendor: Battery management system vendor, or None if not reported.
         first_install: Date of the first installation, or None if not reported.
-        safety_standard: Grid safety standard code, or None if not reported.
+        safety_standard_int: Grid safety standard number, or None if not reported.
 
-    The optional fields are returned by get_devices (``/v2/home/device/query``)
-    but not by get_all_devices (``/home/device/list``).
+    The optional fields are returned by get_devices (`/v2/home/device/query`)
+    but not by get_all_devices (`/home/device/list`).
 
     """
 
@@ -191,17 +191,17 @@ class Device(_EcosModel):
     dsp1_software_version: str | None = Field(alias="dsp1SoftwareVersion", default=None)
     bms_vendor: str | None = Field(alias="bmsVendor", default=None)
     first_install: datetime | None = Field(alias="firstInstall", default=None)
-    safety_standard: int | None = Field(alias="safetyStandard", default=None)
+    safety_standard_int: int | None = Field(alias="safetyStandard", default=None)
+
+    model_config = ConfigDict(
+        extra="allow", populate_by_name=True
+    )  # Allows additional fields. Allows to populate by field name in the model attribute, as well as the aliases.
 
     @field_validator("first_install", mode="before")
     @classmethod
     def _first_install_from_ms(cls, value: Any) -> Any:
         """Convert milliseconds since the epoch to the naive local time used elsewhere."""
         return _from_milliseconds(value)
-
-    model_config = ConfigDict(
-        extra="allow", populate_by_name=True
-    )  # Allows additional fields. Allows to populate by field name in the model attribute, as well as the aliases.
 
 
 # Extra fields not modelled yet:
@@ -928,10 +928,10 @@ def _number_prefix(value: str | None) -> float | None:
 
 
 class DeviceDetail(_EcosModel):
-    """Represents the details of a three-phase device (``/v2/device/three/device/detail``).
+    """Represents the details of a three-phase device (`/v2/device/three/device/detail`).
 
-    The response also lists the accounts bound to the device (``accountList``).
-    That personal data is intentionally not modelled; it stays in ``model_extra``.
+    The response also lists the accounts bound to the device (`accountList`).
+    That personal data is intentionally not modelled; it stays in `model_extra`.
 
     Attributes:
         alias: Human-readable name of the device, or None if not reported.
@@ -947,7 +947,7 @@ class DeviceDetail(_EcosModel):
         first_install: Date of the first installation, or None if not reported.
         rated_power: Rated power as sent by the API (e.g., "13000W").
         battery_capacity: Battery capacity in kWh as sent by the API (e.g., "9.98").
-        safety_standard: Grid safety standard code, or None if not reported.
+        safety_standard_int: Grid safety standard number, or None if not reported.
 
     """
 
@@ -964,7 +964,7 @@ class DeviceDetail(_EcosModel):
     first_install: datetime | None = Field(alias="firstInstall", default=None)
     rated_power: str | None = Field(alias="ratedPower", default=None)
     battery_capacity: str | None = Field(alias="batteryCapacity", default=None)
-    safety_standard: int | None = Field(alias="safetyStandard", default=None)
+    safety_standard_int: int | None = Field(alias="safetyStandard", default=None)
 
     model_config = ConfigDict(extra="allow", populate_by_name=True)
 
@@ -986,15 +986,15 @@ class DeviceDetail(_EcosModel):
 
 
 class DeviceSettings(_EcosModel):
-    """Represents the operating settings of a device (``/customize/info``).
+    """Represents the operating settings of a device (`/customize/info`).
 
     The meaning of the codes is not documented by the API; the descriptions below
-    follow the ECOS app. Fields not listed here stay available in ``model_extra``.
+    follow the ECOS app. Fields not listed here stay available in `model_extra`.
 
     Attributes:
         min_capacity: Minimum battery level in percent.
-        charge_use_mode: Charge use mode code.
-        strategy_mode: Strategy mode code.
+        charge_use_mode_int: Charge use mode number.
+        strategy_mode_int: Strategy mode number.
         max_feed_in: Maximum feed-in setting (unit not documented).
         feed_in_prohibition: Feed-in prohibition flag.
         discharge_to_grid_flag: Discharge-to-grid flag.
@@ -1021,8 +1021,8 @@ class DeviceSettings(_EcosModel):
     """
 
     min_capacity: int | None = Field(alias="minCapacity", default=None)
-    charge_use_mode: int | None = Field(alias="chargeUseMode", default=None)
-    strategy_mode: int | None = Field(alias="strategyMode", default=None)
+    charge_use_mode_int: int | None = Field(alias="chargeUseMode", default=None)
+    strategy_mode_int: int | None = Field(alias="strategyMode", default=None)
     max_feed_in: int | None = Field(alias="maxFeedIn", default=None)
     feed_in_prohibition: int | None = Field(alias="feedInProhibition", default=None)
     discharge_to_grid_flag: int | None = Field(
@@ -1052,19 +1052,19 @@ class DeviceSettings(_EcosModel):
 
 
 class DeviceMode(_EcosModel):
-    """Represents the operating mode of one device of a home (``/v2/home/device/mode``).
+    """Represents the operating mode of one device of a home (`/v2/home/device/mode`).
 
     Attributes:
         device_name: Human-readable name of the device, or None if not reported.
-        charge_use_mode: Charge use mode code, or None if not reported.
-        strategy_mode: Strategy mode code, or None if not reported.
+        charge_use_mode_int: Charge use mode number, or None if not reported.
+        strategy_mode_int: Strategy mode number, or None if not reported.
         is_main: Main device flag, or None if not reported.
 
     """
 
     device_name: str | None = Field(alias="deviceName", default=None)
-    charge_use_mode: int | None = Field(alias="chargeUseMode", default=None)
-    strategy_mode: int | None = Field(alias="strategyMode", default=None)
+    charge_use_mode_int: int | None = Field(alias="chargeUseMode", default=None)
+    strategy_mode_int: int | None = Field(alias="strategyMode", default=None)
     is_main: int | None = Field(alias="isMain", default=None)
 
     model_config = ConfigDict(extra="allow", populate_by_name=True)
@@ -1087,16 +1087,16 @@ class Forecast(_EcosModel):
     """Represents a PV or load forecast for one calendar day, in 15-minute points.
 
     Attributes:
-        points: Forecast points sorted by timestamp.
+        metrics: Forecast points sorted by timestamp.
 
             During initialization it can be provided as the raw dict of the API,
-            ``{"pvForecastDps": {"1795388400": 0.0, ...}}`` or
-            ``{"loadForecastDps": {...}}``. The model validator transforms it into
+            `{"pvForecastDps": {"1795388400": 0.0, ...}}` or
+            `{"loadForecastDps": {...}}`. The model validator transforms it into
             a sorted list of ForecastPoint objects.
 
     """
 
-    points: list[ForecastPoint] = Field(default_factory=list)
+    metrics: list[ForecastPoint] = Field(default_factory=list)
 
     @model_validator(mode="before")
     @classmethod
@@ -1110,11 +1110,11 @@ class Forecast(_EcosModel):
             Formatted data compatible with a list of ForecastPoint.
 
         """
-        if not isinstance(data, dict) or "points" in data:
+        if not isinstance(data, dict) or "metrics" in data:
             return data
         series = _series(data, "pvForecastDps") or _series(data, "loadForecastDps")
         return {
-            "points": [
+            "metrics": [
                 {"timestamp": _from_timestamp(ts), "power": series[ts]}
                 for ts in sorted(series, key=int)
             ]
@@ -1122,7 +1122,7 @@ class Forecast(_EcosModel):
 
 
 class DailySavings(_EcosModel):
-    """Represents the costs and savings of one day (``/v2/home/cost/info``).
+    """Represents the costs and savings of one day (`/v2/home/cost/info`).
 
     Attributes:
         day: The day.

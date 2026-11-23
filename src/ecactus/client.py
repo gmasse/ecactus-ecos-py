@@ -434,7 +434,7 @@ class Ecos(_BaseEcos):
         """Get the details of a three-phase device (model, rated power, battery capacity, firmware).
 
         Only verified with a three-phase inverter (Agave TH). The ECOS web client
-        uses ``/v2/device/single/device/detail`` for single-phase devices instead.
+        uses `/v2/device/single/device/detail` for single-phase devices instead.
 
         Args:
             device_id: The device ID.
@@ -556,7 +556,7 @@ class Ecos(_BaseEcos):
             day: Any time of the requested day. Yesterday, today and tomorrow are
                 available; later days return an empty forecast.
             realtime: Use the forecast that the cloud updates during the day
-                (``/rt``). Only available up to today.
+                (`/rt`). Only available up to today.
 
         Returns:
             The forecast in watts.
@@ -579,7 +579,7 @@ class Ecos(_BaseEcos):
             day: Any time of the requested day. Yesterday, today and tomorrow are
                 available.
             realtime: Use the forecast that the cloud updates during the day
-                (``/rt``). Only available up to today.
+                (`/rt`). Only available up to today.
 
         Returns:
             The forecast in watts.
