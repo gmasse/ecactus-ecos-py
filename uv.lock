@@ -645,6 +645,7 @@ dependencies = [
     { name = "aiohttp" },
     { name = "pydantic" },
     { name = "requests" },
+    { name = "urllib3" },
 ]
 
 [package.dev-dependencies]
@@ -667,6 +668,7 @@ requires-dist = [
     { name = "aiohttp", specifier = ">=3.14.4" },
     { name = "pydantic", specifier = ">=2.10.6" },
     { name = "requests", specifier = ">=2.33.0" },
+    { name = "urllib3", specifier = ">=2.8.0" },
 ]
 
 [package.metadata.requires-dev]
