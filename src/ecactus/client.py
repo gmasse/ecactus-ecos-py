@@ -784,7 +784,7 @@ class Ecos(_BaseEcos):
 
         Returns:
             The current weather; every field is None if the weather service does not
-            know the location.
+                know the location.
 
         Raises:
             ValueError: If a coordinate is not finite or out of range.
