@@ -8,6 +8,20 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from typing_extensions import Annotated, Any, Self  # noqa: UP035
 
 
+def _from_timestamp(ts: str) -> datetime:
+    """Convert a timestamp key of ECOS data to a datetime.
+
+    Raises:
+        ValueError: If the timestamp is not an integer or out of range, so that
+            pydantic reports it as a ValidationError.
+
+    """
+    try:
+        return datetime.fromtimestamp(int(ts))
+    except (OverflowError, OSError) as err:
+        raise ValueError(f"timestamp out of range: {ts}") from err
+
+
 class User(BaseModel):
     """Represents a user.
 
@@ -301,7 +315,7 @@ class PowerTimeSeries(BaseModel):
         timestamps = sorted(home.keys(), key=int)
         data_points: list[dict[str, Any]] = []
         for ts in timestamps:
-            ts_dt = datetime.fromtimestamp(int(ts))
+            ts_dt = _from_timestamp(ts)
             data_points.append(
                 {
                     "timestamp": ts_dt,
@@ -447,7 +461,7 @@ class EnergyHistory(BaseModel):
         timestamps = sorted(home.keys(), key=int)
         data_points: list[dict[str, Any]] = []
         for ts in timestamps:
-            ts_dt = datetime.fromtimestamp(int(ts))
+            ts_dt = _from_timestamp(ts)
             data_points.append({"timestamp": ts_dt, "energy": home.get(ts, None)})
         output: dict[str, Any] = {
             key: value for key, value in data.items() if key != "homeEnergyDps"
@@ -580,7 +594,7 @@ class ConsumptionTimeSeries(BaseModel):
         timestamps = sorted(home.keys(), key=int)
         data_points: list[dict[str, Any]] = []
         for ts in timestamps:
-            ts_dt = datetime.fromtimestamp(int(ts))
+            ts_dt = _from_timestamp(ts)
             data_points.append(
                 {
                     "timestamp": ts_dt,
