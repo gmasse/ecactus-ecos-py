@@ -438,10 +438,6 @@ async def test_get_fixed_price(client, bad_client):
     assert await client.get_fixed_price(home_id=1) is None
 
 
-# TODO test 404
-# TODO test bad method (ex GET in place of POST)
-
-
 async def test_get_weather_now(client, bad_client):
     """Test the current weather."""
     with pytest.raises(UnauthorizedError):
@@ -478,3 +474,24 @@ async def test_get_weather_daily(client, bad_client):
     assert (days[0].temperature_min, days[0].temperature_max) == (-6.0, 4.0)
     assert days[0].uv_index == 2.0
     assert days[0].sunrise == "07:49"
+    assert days[0].wind_scale_day == "1-3"
+    assert await client.get_weather_daily(longitude=2, latitude=1) == []
+
+
+async def test_get_weather_rounds_and_checks_coordinates(client):
+    """Coordinates are sent with two decimals, and invalid ones never leave the client."""
+    # The mock only knows "1.00,2.00": the rounded request must match it
+    weather = await client.get_weather_now(longitude=1.004, latitude=2.001)
+    assert weather.temperature == 2.0
+    for longitude, latitude in (
+        (float("nan"), 2),
+        (1, 200),
+        (181, 2),
+        (1, float("inf")),
+    ):
+        with pytest.raises(ValueError):
+            await client.get_weather_now(longitude=longitude, latitude=latitude)
+
+
+# TODO test 404
+# TODO test bad method (ex GET in place of POST)

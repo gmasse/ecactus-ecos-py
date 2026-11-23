@@ -15,6 +15,8 @@ from ecactus.model import (
     EventType,
     PowerMetrics,
     PowerTimeSeries,
+    WeatherDay,
+    WeatherNow,
 )
 
 
@@ -381,3 +383,19 @@ def test_device_first_install_from_milliseconds():
     """The install date arrives as milliseconds since the epoch."""
     device = Device(**_device_payload(firstInstall=1776424016219))
     assert device.first_install == datetime.fromtimestamp(1776424016)
+
+
+def test_weather_blank_values_become_none():
+    """The weather service may send "" for any field, numbers, times and texts alike."""
+    now = WeatherNow.model_validate(
+        {"obsTime": "", "temp": "", "text": "", "icon": "", "cloud": "26"}
+    )
+    assert now.observation_time is None
+    assert now.temperature is None
+    assert now.text is None
+    assert now.icon is None
+    assert now.cloud == 26.0
+    day = WeatherDay.model_validate({"fxDate": "", "tempMin": "-6", "windScaleDay": ""})
+    assert day.day is None
+    assert day.temperature_min == -6.0
+    assert day.wind_scale_day is None

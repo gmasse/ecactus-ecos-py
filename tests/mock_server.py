@@ -572,7 +572,8 @@ class EcosMockServer:
             "fxDate": "2026-11-23", "sunrise": "07:49", "sunset": "16:35",
             "moonrise": "15:18", "moonset": "06:27", "moonPhase": "Waxing gibbous",
             "tempMax": "4", "tempMin": "-6", "iconDay": "103", "textDay": "Partly Cloudy",
-            "iconNight": "153", "textNight": "Partly Cloudy", "windSpeedDay": "9",
+            "iconNight": "153", "textNight": "Partly Cloudy", "windSpeedDay": "9", "wind360Day": "18", "windDirDay": "NNE", "windScaleDay": "1-3",
+            "wind360Night": "56", "windDirNight": "NE", "windScaleNight": "1-3", "moonPhaseIcon": "803",
             "windSpeedNight": "6", "humidity": "80", "precip": "0.0", "pressure": "1022",
             "vis": "25", "cloud": "1", "uvIndex": "2",
         }  # fmt: skip
