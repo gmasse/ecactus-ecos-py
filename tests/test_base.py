@@ -1,7 +1,11 @@
 """Unit tests for the shared HTTP base (URL and timeout handling)."""
 
+import io
+import time
+
 import pytest
 import requests
+import urllib3
 
 import ecactus
 from ecactus.exceptions import HttpError, InitializationError
@@ -70,3 +74,32 @@ def test_sync_request_times_out(mock_server):
     client = ecactus.Ecos(url=mock_server.url, timeout=0.1)
     with pytest.raises(requests.exceptions.Timeout):
         client._get("/slow")  # noqa: SLF001
+
+
+def test_sync_total_timeout_covers_the_body(mock_server):
+    """A body sent slowly enough that each read fits the timeout still times out."""
+    client = ecactus.Ecos(url=mock_server.url, timeout=0.3)
+    start = time.monotonic()
+    with pytest.raises(requests.exceptions.Timeout):
+        client._get("/drip", {"seconds": 2.0})  # noqa: SLF001
+    assert time.monotonic() - start < 1.0
+
+
+@pytest.mark.parametrize("timeout", [1.0, None])
+def test_sync_slow_body_within_timeout(mock_server, timeout):
+    """A body sent slowly but within the timeout, or with none, is read in full."""
+    client = ecactus.Ecos(url=mock_server.url, timeout=timeout)
+    assert client._get("/drip", {"seconds": 0.2}) == {"dripped": True}  # noqa: SLF001
+
+
+def test_sync_timeout_without_a_socket(monkeypatch):
+    """A response with no socket behind it, as under mock libraries, is read in full."""
+    response = requests.Response()
+    response.status_code = 200
+    response.raw = urllib3.HTTPResponse(
+        io.BytesIO(b'{"success": true, "data": {"mocked": true}}'),
+        preload_content=False,
+    )
+    monkeypatch.setattr(requests, "get", lambda *args, **kwargs: response)
+    client = ecactus.Ecos(url="https://example.invalid", timeout=1.0)
+    assert client._get("/mocked") == {"mocked": True}  # noqa: SLF001
