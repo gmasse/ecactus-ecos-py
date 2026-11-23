@@ -21,12 +21,30 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # All branches, so the next step can tell whether the tag is on main.
+          fetch-depth: 0
       - name: Setup uv
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: 0.13.1
           # A cache written by another workflow must not reach the published build.
           enable-cache: false
+      # A version number cannot be reused on PyPI, so a v* tag pushed by mistake
+      # must stop here. This catches a mistake, not a stolen admin token: the
+      # workflow runs from the tagged commit, which could rewrite this step.
+      - name: Check the tag matches the version and is on main
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version=$(uv version --short)
+          if [ "$TAG" != "v$version" ]; then
+            echo "::error::Tag $TAG does not match version $version in pyproject.toml, expected v$version."
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "::error::Tag $TAG points to $(git rev-parse HEAD), which is not on main."
+            exit 1
+          fi
       # The build backend is pinned in pyproject.toml. The publish action
       # checks the metadata before uploading, so no separate twine check.
       - name: Build distributions
