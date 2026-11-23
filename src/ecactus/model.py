@@ -907,11 +907,18 @@ class Event(_EcosModel):
     Attributes:
         event_type: The normalized event type (cataloged or generic).
         occurrence_time: When the event occurred.
+        action_int: Whether the state begins or ends: `0` = begins, `1` = ends, None if
+            not reported. These are the values observed on one device (EU datacenter),
+            not a documented contract: other values are kept as sent. Each state change
+            of the device is a pair at the same second, the old state ending (`1`) and
+            the new one beginning (`0`); an alarm has a `0` when it is raised and a `1`
+            when it clears.
 
     """
 
     event_type: EventType
     occurrence_time: datetime = Field(alias="occurrenceTime")
+    action_int: int | None = Field(alias="eventAction", default=None)
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -927,6 +934,7 @@ class Event(_EcosModel):
             return {
                 "event_type": EventType.from_raw(typed_data),
                 "occurrenceTime": typed_data.get("occurrenceTime"),
+                "eventAction": typed_data.get("eventAction"),
             }
         return cast("dict[str, Any]", data)
 

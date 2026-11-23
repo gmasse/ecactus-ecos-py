@@ -758,7 +758,8 @@ class EcosMockServer:
                 "eventTypeInt": 0,
                 "eventContentEn": "Waiting for Grid",
                 "eventContentCn": "等待电网模式",
-                "eventAction": None,
+                # The state ends, as when "Checking" begins at the same second
+                "eventAction": 1,
             },
             {
                 "errorCode": "dsp_10",
@@ -766,7 +767,7 @@ class EcosMockServer:
                 "eventTypeInt": 2,
                 "eventContentEn": "Grid Off Fault",
                 "eventContentCn": "无市电",
-                "eventAction": None,
+                "eventAction": 0,
             },
             {
                 "errorCode": "dsp_11",
@@ -774,7 +775,7 @@ class EcosMockServer:
                 "eventTypeInt": 2,
                 "eventContentEn": "Grid Voltage Undertrip/Overtrip Fault",
                 "eventContentCn": "电网电压故障",
-                "eventAction": None,
+                "eventAction": 0,
             },
             {
                 "errorCode": "event_5",
@@ -782,7 +783,7 @@ class EcosMockServer:
                 "eventTypeInt": 0,
                 "eventContentEn": "Checking",
                 "eventContentCn": "进入自检模式",
-                "eventAction": None,
+                "eventAction": 0,
             },
             {
                 "errorCode": "event_1",
@@ -790,7 +791,7 @@ class EcosMockServer:
                 "eventTypeInt": 0,
                 "eventContentEn": "Grid Connected",
                 "eventContentCn": "进入并网模式",
-                "eventAction": None,
+                "eventAction": 0,
             },
             {
                 # The live API sends alarms with an empty errorCode
@@ -799,7 +800,7 @@ class EcosMockServer:
                 "eventTypeInt": 1,
                 "eventContentEn": "Charge High Temperature Alarm",
                 "eventContentCn": "充电高温告警",
-                "eventAction": None,
+                "eventAction": 0,
             },
         ]
         # Generate some fake events within the date range

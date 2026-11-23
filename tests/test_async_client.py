@@ -313,6 +313,8 @@ async def test_get_fault_events(client, bad_client):
     )
     # By default every type comes back
     assert {e.event_type.type for e in events} == {"event", "fault", "alarm"}
+    # and both a state beginning (0) and a state ending (1)
+    assert {e.action_int for e in events} == {0, 1}
     for wanted in ("fault", "alarm", "event"):
         filtered = await client.get_fault_events(
             device_id=1234567890123456789,
