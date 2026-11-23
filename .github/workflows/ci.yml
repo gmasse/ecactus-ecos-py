@@ -67,6 +67,17 @@ jobs:
           # Already run in previous test job
           - os: ubuntu-latest
             python-version: '3.11'
+          # The library is pure Python: Windows and macOS only run the oldest
+          # and newest versions, which also keeps few jobs on the scarce macOS
+          # runners.
+          - os: windows-latest
+            python-version: '3.12'
+          - os: windows-latest
+            python-version: '3.13'
+          - os: macos-latest
+            python-version: '3.12'
+          - os: macos-latest
+            python-version: '3.13'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     permissions:
