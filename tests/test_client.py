@@ -145,6 +145,12 @@ def test_get_devices(client, bad_client):
         client.get_devices(home_id=0)
     devices = client.get_devices(home_id=9876543210987654321)
     assert devices[0].alias == "My Device"
+    assert devices[0].wifi_sn == "WIFI000000000001"
+    assert devices[0].ems_software_version == "000-00000-00"
+    assert devices[0].dsp1_software_version == "111-11111-11"
+    assert devices[0].bms_vendor == "VENDOR"
+    assert devices[0].first_install == datetime.fromtimestamp(1700000000)
+    assert devices[0].safety_standard == 1
 
 
 def test_get_all_devices(client, bad_client):

@@ -233,6 +233,11 @@ class EcosMockServer:
                     "master": 0,
                     "emsSoftwareVersion": "000-00000-00",
                     "dsp1SoftwareVersion": "111-11111-11",
+                    "bmsVendor": "VENDOR",
+                    "firstInstall": 1700000000000,
+                    "isMain": None,
+                    "safetyStandard": 1,
+                    "wifiSn": "WIFI000000000001",
                 }
             ]
         )

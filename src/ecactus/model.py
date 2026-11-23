@@ -4,7 +4,7 @@ from bisect import bisect_left
 from datetime import datetime
 from typing import ClassVar, cast
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from typing_extensions import Annotated, Any, Self  # noqa: UP035
 
 
@@ -121,6 +121,17 @@ class Device(_EcosModel):
         latitude: Latitude of the device's location.
         device_type: Unknown (e.g., "XX-XXX123").
         master_int: Master status number.
+        wifi_sn: WiFi dongle serial number, or None if not reported.
+        resource_series_id: Resource series ID, or None if not reported.
+        resource_type_id: Resource type ID, or None if not reported.
+        ems_software_version: EMS firmware version, or None if not reported.
+        dsp1_software_version: DSP1 firmware version, or None if not reported.
+        bms_vendor: Battery management system vendor, or None if not reported.
+        first_install: Date of the first installation, or None if not reported.
+        safety_standard: Grid safety standard code, or None if not reported.
+
+    The optional fields are returned by get_devices (``/v2/home/device/query``)
+    but not by get_all_devices (``/home/device/list``).
 
     """
 
@@ -138,16 +149,31 @@ class Device(_EcosModel):
     device_type: str | None = Field(alias="deviceType")
     master_int: int = Field(alias="master")
     # TODO: master (based on an Enum)
+    wifi_sn: str | None = Field(alias="wifiSn", default=None)
+    resource_series_id: int | None = Field(alias="resourceSeriesId", default=None)
+    resource_type_id: int | None = Field(alias="resourceTypeId", default=None)
+    ems_software_version: str | None = Field(alias="emsSoftwareVersion", default=None)
+    dsp1_software_version: str | None = Field(alias="dsp1SoftwareVersion", default=None)
+    bms_vendor: str | None = Field(alias="bmsVendor", default=None)
+    first_install: datetime | None = Field(alias="firstInstall", default=None)
+    safety_standard: int | None = Field(alias="safetyStandard", default=None)
+
+    @field_validator("first_install", mode="before")
+    @classmethod
+    def _first_install_from_ms(cls, value: Any) -> Any:
+        """Convert milliseconds since the epoch to the naive local time used elsewhere."""
+        if isinstance(value, int | float) and not isinstance(value, bool):
+            return _from_timestamp(str(int(value) // 1000))
+        return value
 
     model_config = ConfigDict(
         extra="allow", populate_by_name=True
     )  # Allows additional fields. Allows to populate by field name in the model attribute, as well as the aliases.
 
 
-# Extra fields :
+# Extra fields not modelled yet:
 # """
 #     Attributes:
-#         wifi_sn: WiFi serial number for the device.
 #         battery_soc: Battery state of charge.
 #         battery_power: Battery power level.
 #         socket_switch: Socket switch state, or None if not applicable.
@@ -157,12 +183,7 @@ class Device(_EcosModel):
 #         icon: Icon associated with the device, or None if not specified.
 #         category: Category of the device, or None if not specified.
 #         model: Model of the device, or None if not specified.-
-#         resource_series_id: Resource series ID for the device.
-#         resource_type_id: Resource type ID for the device.
-#         ems_software_version: EMS software version.
-#         dsp1_software_version: DSP1 software version.
 # """
-# wifi_sn: str = Field(alias="wifiSn")
 # battery_soc: float = Field(alias="batterySoc")
 # battery_power: int = Field(alias="batteryPower")
 # socket_switch: bool | None = Field(alias="socketSwitch")
@@ -172,10 +193,6 @@ class Device(_EcosModel):
 # icon: str | None
 # category: str | None
 # model: str | None
-# resource_series_id: int = Field(alias="resourceSeriesId")
-# resource_type_id: int = Field(alias="resourceTypeId")
-# ems_software_version: str = Field(alias="emsSoftwareVersion")
-# dsp1_software_version: str = Field(alias="dsp1SoftwareVersion")
 
 
 class PowerMetrics(_EcosModel):
