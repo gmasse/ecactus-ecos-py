@@ -689,7 +689,7 @@ class EcosMockServer:
             days = (
                 []
                 if first is None
-                else self._days(first, min(today, self._month_end(first)))
+                else self._days(first, min(today, first + relativedelta(day=31)))
             )
         elif period == 1:
             days = self._days(today - timedelta(days=2), today)  # the last three days
@@ -714,12 +714,6 @@ class EcosMockServer:
     @staticmethod
     def _days(first: date, last: date) -> list[date]:
         return [first + timedelta(days=i) for i in range((last - first).days + 1)]
-
-    @staticmethod
-    def _month_end(day: date) -> date:
-        return (day.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(
-            days=1
-        )
 
     async def handle_get_insight(self, request: web.Request) -> web.Response:
         """Mock the get insight endpoint."""

@@ -273,9 +273,8 @@ async def test_get_history(client, bad_client):
     month = await client.get_history(
         device_id=1234567890123456789, start_date=now, period_type=0
     )
-    assert (
-        len(month.metrics) == today.day
-    )  # the calendar month of start_date, up to today
+    # the calendar month of start_date, up to today
+    assert len(month.metrics) == today.day
     with pytest.raises(ParameterVerificationFailedError):
         await client.get_history(device_id=1234567890123456789, period_type=0)
     last_days = await client.get_history(device_id=1234567890123456789, period_type=1)
