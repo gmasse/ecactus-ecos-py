@@ -1,7 +1,7 @@
 """Ecos API mock server."""
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import logging
 import random
 import string
@@ -672,21 +672,48 @@ class EcosMockServer:
             return EcosMockServer._ok_response(
                 code=20404, message="Parameter verification failed", success=False
             )
-        # TODO other period time
-        if request_payload.get("periodType") != 4:
-            return EcosMockServer._not_implemented_response()
-        current_month_timestamp = int(
-            datetime.today()
-            .replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-            .timestamp()
-        )
+        # Periods as the live API answers them (EU, 2026-11-24): one entry per day,
+        # or per month for 4, keyed by local midnight in epoch seconds
+        today = date.today()
+        month_start = today.replace(day=1)
+        previous_month_start = (month_start - timedelta(days=1)).replace(day=1)
+        period = request_payload.get("periodType")
+        if period == 0:
+            # the calendar month of `timestamp`; nothing without one
+            timestamp = request_payload.get("timestamp") or 0
+            first = (
+                datetime.fromtimestamp(timestamp).date().replace(day=1)
+                if timestamp
+                else None
+            )
+            days = (
+                []
+                if first is None
+                else self._days(first, min(today, first + relativedelta(day=31)))
+            )
+        elif period == 1:
+            days = self._days(today - timedelta(days=2), today)  # the last three days
+        elif period == 2:
+            days = self._days(month_start, today)  # the current month
+        elif period == 3:
+            days = self._days(previous_month_start, today)  # previous and current month
+        else:
+            # one entry per month, here the last three
+            two_months_ago = (previous_month_start - timedelta(days=1)).replace(day=1)
+            days = [two_months_ago, previous_month_start, month_start]
+        value = 300.0 if period == 4 else 9.5
+        dps = {int(datetime(d.year, d.month, d.day).timestamp()): value for d in days}
         return EcosMockServer._success_response(
             data={
-                "energyConsumption": 924.7,
+                "energyConsumption": round(value * len(dps), 1),
                 "solarPercent": 54.0,
-                "homeEnergyDps": {current_month_timestamp: 924.7},
+                "homeEnergyDps": dps,
             }
         )
+
+    @staticmethod
+    def _days(first: date, last: date) -> list[date]:
+        return [first + timedelta(days=i) for i in range((last - first).days + 1)]
 
     async def handle_get_insight(self, request: web.Request) -> web.Response:
         """Mock the get insight endpoint."""
@@ -806,10 +833,10 @@ class EcosMockServer:
         logger.debug(request_payload)
         if str(request_payload.get("deviceId")) != "1234567890123456789":
             return EcosMockServer._response(
-                code=20424,
-                message="unauthorized device",
+                code=20412,
+                message="illegal data operation",
                 success=False,
-                http_status=401,
+                http_status=200,  # the live API sends 20412 with HTTP 200 (EU, 2026-11-24)
             )
         if request_payload.get("type") is None:
             # The live API (EU, 2026-11-23) fails without it, and with null
