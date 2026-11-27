@@ -269,12 +269,25 @@ def test_get_history(client, bad_client):
         client.get_history(
             device_id=1234567890123456789, start_date=now, period_type=5
         )
-    history = client.get_history(
-        device_id=1234567890123456789, start_date=now, period_type=4
+    today = now.date()
+    month = client.get_history(
+        device_id=1234567890123456789, start_date=now, period_type=0
     )
-    assert len(history.metrics) == 1
-
-    # TODO other period types
+    # the calendar month of start_date, up to today
+    assert len(month.metrics) == today.day
+    with pytest.raises(ParameterVerificationFailedError):
+        client.get_history(device_id=1234567890123456789, period_type=0)
+    last_days = client.get_history(device_id=1234567890123456789, period_type=1)
+    assert len(last_days.metrics) == 3
+    current = client.get_history(device_id=1234567890123456789, period_type=2)
+    assert len(current.metrics) == today.day
+    # 3 needs no start_date: the API ignores it
+    two_months = client.get_history(device_id=1234567890123456789, period_type=3)
+    assert len(two_months.metrics) > today.day
+    assert min(m.timestamp for m in two_months.metrics).month != today.month
+    monthly = client.get_history(device_id=1234567890123456789, period_type=4)
+    assert len(monthly.metrics) == 3
+    assert monthly.energy_consumption == sum(m.energy for m in monthly.metrics)
 
 
 def test_get_insight(client, bad_client):

@@ -296,14 +296,14 @@ class Ecos(_BaseEcos):
 
         Args:
             device_id: The device ID to get history for.
-            period_type: Possible value:
+            period_type: Possible value (observed on one device, EU datacenter):
 
-                - `0`: daily values of the calendar month corresponding to `start_date`
-                - `1`: today daily values (`start_date` is ignored) (?)
+                - `0`: daily values of the calendar month containing `start_date`
+                - `1`: daily values of the last three days, today included (`start_date` is ignored)
                 - `2`: daily values of the current month (`start_date` is ignored)
-                - `3`: same than 2 ?
-                - `4`: total for the current month (`start_date` is ignored)
-            start_date: The start date.
+                - `3`: daily values of the previous and the current month (`start_date` is ignored)
+                - `4`: monthly values up to the current month, `energy_consumption` being their total (`start_date` is ignored); on a device installed in the current year this covers every month since installation, whether earlier years are included is not known
+            start_date: The start date, required for `period_type` 0.
 
         Returns:
             Data and metrics corresponding to the defined period.
@@ -319,7 +319,7 @@ class Ecos(_BaseEcos):
         logger.info("Get history for device %s", device_id)
         self._ensure_login()
         if start_date is None:
-            if period_type in (1, 2, 4):
+            if period_type in (1, 2, 3, 4):
                 start_ts = 0
             else:
                 raise ParameterVerificationFailedError(
@@ -354,12 +354,15 @@ class Ecos(_BaseEcos):
             device_id: The device ID to get data for.
             period_type: Possible value:
 
-                - `0`: 5-minute power measurement for the calendar day corresponding to `start_date` (`insightConsumptionDataDto` is `None`)
-                - `1`: (not implemented)
-                - `2`: daily energy for the calendar month corresponding to `start_date` (`deviceRealtimeDto` is `None`)
-                - `3`: (not implemented)
-                - `4`: monthly energy for the calendar year corresponding to `start_date` (`deviceRealtimeDto` is `None`)
-                - `5`: yearly energy, `start_date` is ignored (?) (`deviceRealtimeDto` is `None`)
+                - `0`: 15-minute power measurements (96 per day) for the calendar day containing `start_date` (`insightConsumptionDataDto` is `None`)
+                - `1`: rejected by the API (`ParameterVerificationFailedError`)
+                - `2`: daily energy for the calendar month containing `start_date` (`deviceRealtimeDto` is `None`)
+                - `3`: rejected by the API (`ParameterVerificationFailedError`)
+                - `4`: monthly energy for the calendar year containing `start_date` (`deviceRealtimeDto` is `None`)
+                - `5`: yearly energy, one entry per calendar year; `start_date` is ignored (`deviceRealtimeDto` is `None`). On a device installed in the current year, its statistics match the lifetime counters of the installer app.
+
+                The calendar day, month or year is taken in local time (observed on
+                one device in Europe/Berlin, EU datacenter).
             start_date: The start date.
 
         Returns:
@@ -451,7 +454,9 @@ class Ecos(_BaseEcos):
                 },
             )
         except ApiResponseError as err:
-            if err.code == 20424:
+            # The live API answers 20412 "illegal data operation" for an unknown device
+            # on this endpoint (EU, 2026-11-24), other endpoints answer 20424
+            if err.code in (20412, 20424):
                 raise UnauthorizedDeviceError(device_id) from err
             raise
         if not isinstance(output, dict):
