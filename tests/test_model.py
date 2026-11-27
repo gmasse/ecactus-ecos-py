@@ -13,6 +13,7 @@ from ecactus.model import (
     EnergyHistory,
     Event,
     EventType,
+    MessageCount,
     PowerMetrics,
     PowerTimeSeries,
     WeatherDay,
@@ -420,3 +421,11 @@ def test_weather_blank_values_become_none():
     assert day.day is None
     assert day.temperature_min == -6.0
     assert day.wind_scale_day is None
+
+
+def test_message_count_requires_both_counters():
+    """A response without the counters is not read as "no unread message"."""
+    with pytest.raises(ValidationError):
+        MessageCount.model_validate({})
+    with pytest.raises(ValidationError):
+        MessageCount.model_validate({"deviceMessageCount": 1})

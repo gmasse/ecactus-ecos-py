@@ -384,6 +384,10 @@ class EcosMockServer:
         """Mock three-phase device detail endpoint."""
         if not self._is_authorized_request(request):
             return EcosMockServer._unauthorized_response()
+        if str(request.query.get("deviceId")) != "1234567890123456789":
+            return EcosMockServer._ok_response(
+                code=20450, message="The device does not exist.", success=False
+            )
         return EcosMockServer._success_response(
             data={
                 "name": "My Device",
@@ -410,6 +414,10 @@ class EcosMockServer:
         """Mock device settings endpoint."""
         if not self._is_authorized_request(request):
             return EcosMockServer._unauthorized_response()
+        if str(request.query.get("deviceId")) != "1234567890123456789":
+            return EcosMockServer._ok_response(
+                code=20424, message="unauthorized device", success=False
+            )
         return EcosMockServer._success_response(
             data={
                 "minCapacity": 15,
@@ -445,6 +453,10 @@ class EcosMockServer:
         """Mock device mode endpoint."""
         if not self._is_authorized_request(request):
             return EcosMockServer._unauthorized_response()
+        if str(request.query.get("homeId")) != "9876543210987654321":
+            return EcosMockServer._ok_response(
+                code=20450, message="Home does not exist.", success=False
+            )
         return EcosMockServer._success_response(
             data=[
                 {
@@ -460,12 +472,20 @@ class EcosMockServer:
         """Mock power limit endpoint (bare number)."""
         if not self._is_authorized_request(request):
             return EcosMockServer._unauthorized_response()
+        if str(request.query.get("deviceId")) != "1234567890123456789":
+            return EcosMockServer._ok_response(
+                code=20412, message="illegal data operation", success=False
+            )
         return EcosMockServer._success_response(data=0)
 
     async def handle_get_forecast(self, request: web.Request) -> web.Response:
         """Mock PV and load forecast endpoints, plain and realtime."""
         if not self._is_authorized_request(request):
             return EcosMockServer._unauthorized_response()
+        if str(request.query.get("homeId")) != "9876543210987654321":
+            return EcosMockServer._ok_response(
+                code=20450, message="Home does not exist.", success=False
+            )
         day_ms = int(request.query.get("timestamp", "0"))
         if request.path.endswith("/rt") and day_ms > datetime.now().timestamp() * 1000:
             return EcosMockServer._ok_response(
@@ -481,6 +501,18 @@ class EcosMockServer:
         """Mock home cost info endpoint."""
         if not self._is_authorized_request(request):
             return EcosMockServer._unauthorized_response()
+        if str(request.query.get("homeId")) != "9876543210987654321":
+            # The live API reports no error for an unknown home (EU, 2026-11-23)
+            return EcosMockServer._success_response(
+                data={
+                    "todaySavings": None,
+                    "weeklySavings": None,
+                    "monthSavings": None,
+                    "monthLoadCost": None,
+                    "monthGridCost": None,
+                    "monthFeedEarnings": None,
+                }
+            )
         return EcosMockServer._success_response(
             data={
                 "todaySavings": 0.99,
@@ -625,6 +657,11 @@ class EcosMockServer:
         """Mock backup statistics endpoint."""
         if not self._is_authorized_request(request):
             return EcosMockServer._unauthorized_response()
+        request_payload = await request.json()
+        if str(request_payload.get("deviceId")) != "1234567890123456789":
+            return EcosMockServer._ok_response(
+                code=20424, message="unauthorized device", success=False
+            )
         return EcosMockServer._success_response(
             data={"backupCount": 2, "backupEnergy": 1.5, "backupDuration": 3.25}
         )

@@ -1199,6 +1199,12 @@ class CostInfo(_EcosModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
+    @field_validator("weekly_savings", mode="before")
+    @classmethod
+    def _weekly_savings_from_null(cls, value: Any) -> Any:
+        """Read `null` as no day: the API sends it for an unknown home (EU, 2026-11-23)."""
+        return [] if value is None else value
+
 
 class BackupStatistics(_EcosModel):
     """Represents the backup (EPS) statistics of a device over a period.
@@ -1226,8 +1232,8 @@ class MessageCount(_EcosModel):
 
     """
 
-    device: int = Field(alias="deviceMessageCount", default=0)
-    official: int = Field(alias="officialMessageCount", default=0)
+    device: int = Field(alias="deviceMessageCount")
+    official: int = Field(alias="officialMessageCount")
 
     model_config = ConfigDict(populate_by_name=True)
 
