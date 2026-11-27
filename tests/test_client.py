@@ -343,6 +343,8 @@ def test_get_device_detail(client, bad_client):
     """Test get device detail."""
     with pytest.raises(UnauthorizedError):
         bad_client.get_device_detail(device_id=0)
+    with pytest.raises(UnauthorizedDeviceError):
+        client.get_device_detail(device_id=0)
     detail = client.get_device_detail(device_id=1234567890123456789)
     assert detail.model == "XX-XXX123"
     assert detail.rated_power_w == 10000
@@ -356,6 +358,8 @@ def test_get_device_settings(client, bad_client):
     """Test get device settings."""
     with pytest.raises(UnauthorizedError):
         bad_client.get_device_settings(device_id=0)
+    with pytest.raises(UnauthorizedDeviceError):
+        client.get_device_settings(device_id=0)
     settings = client.get_device_settings(device_id=1234567890123456789)
     assert settings.self_soc == 15
     assert settings.eps_battery_min == 10
@@ -367,6 +371,8 @@ def test_get_device_modes(client, bad_client):
     """Test get device modes."""
     with pytest.raises(UnauthorizedError):
         bad_client.get_device_modes(home_id=0)
+    with pytest.raises(HomeDoesNotExistError):
+        client.get_device_modes(home_id=0)
     modes = client.get_device_modes(home_id=9876543210987654321)
     assert modes[0].charge_use_mode_int == 0
     assert modes[0].is_main is None
@@ -376,6 +382,8 @@ def test_get_power_limit(client, bad_client):
     """Test get power limit."""
     with pytest.raises(UnauthorizedError):
         bad_client.get_power_limit(device_id=0)
+    with pytest.raises(UnauthorizedDeviceError):
+        client.get_power_limit(device_id=0)
     assert client.get_power_limit(device_id=1234567890123456789) == 0
 
 
@@ -384,6 +392,10 @@ def test_get_pv_and_load_forecast(client, bad_client):
     now = datetime.now()
     with pytest.raises(UnauthorizedError):
         bad_client.get_pv_forecast(home_id=0, day=now)
+    with pytest.raises(HomeDoesNotExistError):
+        client.get_pv_forecast(home_id=0, day=now)
+    with pytest.raises(HomeDoesNotExistError):
+        client.get_load_forecast(home_id=0, day=now, realtime=True)
     pv = client.get_pv_forecast(home_id=9876543210987654321, day=now)
     assert [p.power for p in pv.metrics] == [0.0, 100.0, 200.0, 300.0]
     assert pv.metrics[0].timestamp < pv.metrics[1].timestamp
@@ -401,6 +413,10 @@ def test_get_cost_info(client, bad_client):
     """Test get cost info."""
     with pytest.raises(UnauthorizedError):
         bad_client.get_cost_info(home_id=0)
+    # The API reports no error for an unknown home, only empty values
+    unknown = client.get_cost_info(home_id=0)
+    assert unknown.today_savings is None
+    assert unknown.weekly_savings == []
     cost = client.get_cost_info(home_id=9876543210987654321)
     assert cost.today_savings == 0.99
     assert cost.weekly_savings[0].day == datetime.fromtimestamp(1700000000)
@@ -429,6 +445,8 @@ def test_get_backup_statistics(client, bad_client):
         bad_client.get_backup_statistics(
             device_id=0, start_date=start, end_date=end
         )
+    with pytest.raises(UnauthorizedDeviceError):
+        client.get_backup_statistics(device_id=0, start_date=start, end_date=end)
     stats = client.get_backup_statistics(
         device_id=1234567890123456789, start_date=start, end_date=end
     )
