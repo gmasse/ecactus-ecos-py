@@ -296,14 +296,14 @@ class AsyncEcos(_BaseEcos):
 
         Args:
             device_id: The device ID to get history for.
-            period_type: Possible value:
+            period_type: Possible value (observed on one device, EU datacenter):
 
-                - `0`: daily values of the calendar month corresponding to `start_date`
-                - `1`: today daily values (`start_date` is ignored) (?)
+                - `0`: daily values of the calendar month containing `start_date`
+                - `1`: daily values of the last three days, today included (`start_date` is ignored)
                 - `2`: daily values of the current month (`start_date` is ignored)
-                - `3`: same than 2 ?
-                - `4`: total for the current month (`start_date` is ignored)
-            start_date: The start date.
+                - `3`: daily values of the previous and the current month (`start_date` is ignored)
+                - `4`: monthly values up to the current month, `energy_consumption` being their total (`start_date` is ignored); on a device installed in the current year this covers every month since installation, whether earlier years are included is not known
+            start_date: The start date, required for `period_type` 0.
 
         Returns:
             Data and metrics corresponding to the defined period.
@@ -319,7 +319,7 @@ class AsyncEcos(_BaseEcos):
         logger.info("Get history for device %s", device_id)
         await self._ensure_login()
         if start_date is None:
-            if period_type in (1, 2, 4):
+            if period_type in (1, 2, 3, 4):
                 start_ts = 0
             else:
                 raise ParameterVerificationFailedError(
@@ -354,12 +354,15 @@ class AsyncEcos(_BaseEcos):
             device_id: The device ID to get data for.
             period_type: Possible value:
 
-                - `0`: 5-minute power measurement for the calendar day corresponding to `start_date` (`insightConsumptionDataDto` is `None`)
-                - `1`: (not implemented)
-                - `2`: daily energy for the calendar month corresponding to `start_date` (`deviceRealtimeDto` is `None`)
-                - `3`: (not implemented)
-                - `4`: monthly energy for the calendar year corresponding to `start_date` (`deviceRealtimeDto` is `None`)
-                - `5`: yearly energy, `start_date` is ignored (?) (`deviceRealtimeDto` is `None`)
+                - `0`: 15-minute power measurements (96 per day) for the calendar day containing `start_date` (`insightConsumptionDataDto` is `None`)
+                - `1`: rejected by the API (`ParameterVerificationFailedError`)
+                - `2`: daily energy for the calendar month containing `start_date` (`deviceRealtimeDto` is `None`)
+                - `3`: rejected by the API (`ParameterVerificationFailedError`)
+                - `4`: monthly energy for the calendar year containing `start_date` (`deviceRealtimeDto` is `None`)
+                - `5`: yearly energy, one entry per calendar year; `start_date` is ignored (`deviceRealtimeDto` is `None`). On a device installed in the current year, its statistics match the lifetime counters of the installer app.
+
+                The calendar day, month or year is taken in local time (observed on
+                one device in Europe/Berlin, EU datacenter).
             start_date: The start date.
 
         Returns:
@@ -451,7 +454,9 @@ class AsyncEcos(_BaseEcos):
                 },
             )
         except ApiResponseError as err:
-            if err.code == 20424:
+            # The live API answers 20412 "illegal data operation" for an unknown device
+            # on this endpoint (EU, 2026-11-24), other endpoints answer 20424
+            if err.code in (20412, 20424):
                 raise UnauthorizedDeviceError(device_id) from err
             raise
         if not isinstance(output, dict):
@@ -471,6 +476,7 @@ class AsyncEcos(_BaseEcos):
             The device details.
 
         Raises:
+            UnauthorizedDeviceError: If the device id is not correct.
             UnauthorizedError: If the Authorization token is not valid.
             ApiResponseError: If the API returns a non-successful response.
             pydantic.ValidationError: If the response data does not have the expected shape.
@@ -478,12 +484,19 @@ class AsyncEcos(_BaseEcos):
         """
         logger.info("Get detail for device %s", device_id)
         await self._ensure_login()
-        return DeviceDetail.model_validate(
-            await self._async_get(
-                "/api/client/v2/device/three/device/detail",
-                payload={"deviceId": device_id},
+        try:
+            return DeviceDetail.model_validate(
+                await self._async_get(
+                    "/api/client/v2/device/three/device/detail",
+                    payload={"deviceId": device_id},
+                )
             )
-        )
+        except ApiResponseError as err:
+            # The live API answers 20450 "The device does not exist." for an unknown
+            # device on this endpoint (EU, 2026-11-23), the code of an unknown home
+            if err.code == 20450:
+                raise UnauthorizedDeviceError(device_id) from err
+            raise
 
     async def get_device_settings(self, device_id: str) -> DeviceSettings:
         """Get the operating settings of a device (battery reserves, feed-in, charge windows, firmware).
@@ -495,6 +508,7 @@ class AsyncEcos(_BaseEcos):
             The device settings.
 
         Raises:
+            UnauthorizedDeviceError: If the device id is not correct.
             UnauthorizedError: If the Authorization token is not valid.
             ApiResponseError: If the API returns a non-successful response.
             pydantic.ValidationError: If the response data does not have the expected shape.
@@ -502,11 +516,16 @@ class AsyncEcos(_BaseEcos):
         """
         logger.info("Get settings for device %s", device_id)
         await self._ensure_login()
-        return DeviceSettings.model_validate(
-            await self._async_get(
-                "/api/client/customize/info", payload={"deviceId": device_id}
+        try:
+            return DeviceSettings.model_validate(
+                await self._async_get(
+                    "/api/client/customize/info", payload={"deviceId": device_id}
+                )
             )
-        )
+        except ApiResponseError as err:
+            if err.code == 20424:
+                raise UnauthorizedDeviceError(device_id) from err
+            raise
 
     async def get_device_modes(self, home_id: str) -> list[DeviceMode]:
         """Get the operating mode of every device of a home.
@@ -518,6 +537,7 @@ class AsyncEcos(_BaseEcos):
             One DeviceMode per device.
 
         Raises:
+            HomeDoesNotExistError: If the home id is not correct.
             UnauthorizedError: If the Authorization token is not valid.
             ApiResponseError: If the API returns a non-successful response.
             pydantic.ValidationError: If the response data does not have the expected shape.
@@ -525,11 +545,16 @@ class AsyncEcos(_BaseEcos):
         """
         logger.info("Get device modes for home %s", home_id)
         await self._ensure_login()
-        return _DEVICE_MODE_LIST.validate_python(
-            await self._async_get(
-                "/api/client/v2/home/device/mode", payload={"homeId": home_id}
+        try:
+            return _DEVICE_MODE_LIST.validate_python(
+                await self._async_get(
+                    "/api/client/v2/home/device/mode", payload={"homeId": home_id}
+                )
             )
-        )
+        except ApiResponseError as err:
+            if err.code == 20450:
+                raise HomeDoesNotExistError(home_id) from err
+            raise
 
     async def get_power_limit(self, device_id: str) -> float:
         """Get the main grid connection limit of a three-phase device.
@@ -543,6 +568,7 @@ class AsyncEcos(_BaseEcos):
             The power limit as returned by the API (0 when no limit is set).
 
         Raises:
+            UnauthorizedDeviceError: If the device id is not correct.
             UnauthorizedError: If the Authorization token is not valid.
             ApiResponseError: If the API returns a non-successful response.
             pydantic.ValidationError: If the response data does not have the expected shape.
@@ -550,10 +576,17 @@ class AsyncEcos(_BaseEcos):
         """
         logger.info("Get power limit for device %s", device_id)
         await self._ensure_login()
-        value = await self._async_get(
-            "/api/client/v2/device/three/device/power_limit",
-            payload={"deviceId": device_id},
-        )
+        try:
+            value = await self._async_get(
+                "/api/client/v2/device/three/device/power_limit",
+                payload={"deviceId": device_id},
+            )
+        except ApiResponseError as err:
+            # The live API answers 20412 "illegal data operation" for an unknown device
+            # on this endpoint (EU, 2026-11-23), like get_fault_events
+            if err.code == 20412:
+                raise UnauthorizedDeviceError(device_id) from err
+            raise
         return _POWER_LIMIT.validate_python(value) or 0.0
 
     async def _get_forecast(
@@ -578,6 +611,8 @@ class AsyncEcos(_BaseEcos):
         except ApiResponseError as err:
             if err.code == 20404:
                 raise ParameterVerificationFailedError from err
+            if err.code == 20450:
+                raise HomeDoesNotExistError(home_id) from err
             raise
 
     async def get_pv_forecast(
@@ -596,6 +631,7 @@ class AsyncEcos(_BaseEcos):
             The forecast in watts.
 
         Raises:
+            HomeDoesNotExistError: If the home id is not correct.
             ParameterVerificationFailedError: If the day is not available (e.g. a future day with `realtime`).
             UnauthorizedError: If the Authorization token is not valid.
             ApiResponseError: If the API returns a non-successful response.
@@ -620,6 +656,7 @@ class AsyncEcos(_BaseEcos):
             The forecast in watts.
 
         Raises:
+            HomeDoesNotExistError: If the home id is not correct.
             ParameterVerificationFailedError: If the day is not available.
             UnauthorizedError: If the Authorization token is not valid.
             ApiResponseError: If the API returns a non-successful response.
@@ -630,6 +667,9 @@ class AsyncEcos(_BaseEcos):
 
     async def get_cost_info(self, home_id: str) -> CostInfo:
         """Get the costs and savings of a home as computed by the ECOS cloud.
+
+        The API does not report an unknown home: it answers with every value
+        `None` (EU, 2026-11-23), as for a home without cost data.
 
         Args:
             home_id: The home ID.
@@ -694,6 +734,7 @@ class AsyncEcos(_BaseEcos):
             Number, energy and duration of the backup events.
 
         Raises:
+            UnauthorizedDeviceError: If the device id is not correct.
             UnauthorizedError: If the Authorization token is not valid.
             ApiResponseError: If the API returns a non-successful response.
             pydantic.ValidationError: If the response data does not have the expected shape.
@@ -701,16 +742,21 @@ class AsyncEcos(_BaseEcos):
         """
         logger.info("Get backup statistics for device %s", device_id)
         await self._ensure_login()
-        return BackupStatistics.model_validate(
-            await self._async_post(
-                "/api/client/home/events/backup/statistics",
-                payload={
-                    "deviceId": device_id,
-                    "startTime": int(start_date.timestamp()),
-                    "endTime": int(end_date.timestamp()),
-                },
+        try:
+            return BackupStatistics.model_validate(
+                await self._async_post(
+                    "/api/client/home/events/backup/statistics",
+                    payload={
+                        "deviceId": device_id,
+                        "startTime": int(start_date.timestamp()),
+                        "endTime": int(end_date.timestamp()),
+                    },
+                )
             )
-        )
+        except ApiResponseError as err:
+            if err.code == 20424:
+                raise UnauthorizedDeviceError(device_id) from err
+            raise
 
     async def get_unread_message_count(self) -> MessageCount:
         """Get the number of unread messages of the account.
@@ -737,7 +783,8 @@ class AsyncEcos(_BaseEcos):
             home_id: The home ID.
 
         Returns:
-            The configured prices, or None if no fixed price is set.
+            The configured prices, or None if no fixed price is set. The API
+                answers the same for an unknown home (EU, 2026-11-23).
 
         Raises:
             UnauthorizedError: If the Authorization token is not valid.

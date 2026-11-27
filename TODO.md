@@ -17,7 +17,7 @@
 - [ ] Identify and document any new API endpoints
 
 ---
-_Last updated: 2026-11-23_
+_Last updated: 2026-11-27_
 
 
 
@@ -66,8 +66,9 @@ Tried with `homeId`, `deviceId` and a millisecond `timestamp`, as GET and POST:
 - `/api/client/message/page` — 403 (`count_unread` works as POST).
 - `/api/client/problem_feedback/page`, `/detail` — 403 / not tried.
 - `/api/client/v2/device/single/device/detail`, `.../single/device/power_limit`
-  — single-phase counterparts of `get_device_detail` and `get_power_limit`; not
-  tried (no single-phase device available).
+  — single-phase counterparts of `get_device_detail` and `get_power_limit`. On
+  the three-phase Agave TH they answer with the same keys as the `three/...`
+  paths (2026-11-23, #91); not tried on a single-phase device.
 
 #### Actions and settings (writes, not tried)
 
@@ -96,6 +97,24 @@ Tried with `homeId`, `deviceId` and a millisecond `timestamp`, as GET and POST:
 - Smart plug: `/api/client/v2/device/singlePlugSocket/...` — `query`, `ele`,
   `switch`, `overcharge`, `clear/power`, `logs/switch`,
   `time/{countdown,random}`, `time/timing/{add,query,update,delete}`.
+
+### Unknown device or home
+
+Codes the live API answers for an identifier that does not belong to the
+account (Agave TH, EU, 2026-11-23, #91). Most endpoints answer `20424` for a
+device and `20450` for a home; these answer differently:
+
+- `get_device_detail` — `20450` "The device does not exist.", the code of an
+  unknown home; raised as `UnauthorizedDeviceError`.
+- `get_power_limit`, `get_fault_events` — `20412` "illegal data operation";
+  raised as `UnauthorizedDeviceError`.
+- `get_cost_info` — success, every value `null`: an unknown home cannot be told
+  apart from a home without cost data.
+- `get_fixed_price` — success, `data: null`, the same answer as a home without
+  a fixed price.
+- `get_cost_info` with an identifier above the 64-bit range (e.g.
+  `9876543210987654321`, the home id of the mock server) — HTTP 500
+  `For input string: "9876543210987654321"`.
 
 ### Uncovered errors
 
